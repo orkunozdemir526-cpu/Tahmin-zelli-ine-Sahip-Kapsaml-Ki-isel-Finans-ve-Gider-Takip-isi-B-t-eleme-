@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kişisel Finans ve Tahmin Paneli</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* --- GENEL, KOYU MOD VE DİNAMİK VURGU (ACCENT) STİLLERİ --- */
+        :root {
+            --bg-color: #f4f4f9; --text-color: #333; --card-bg: white;
+            --input-bg: white; --input-border: #ccc; --stat-bg: #e9ecef; --chart-border: #eee;
+            --tx-hover: #f8f9fa; --text-muted: #6c757d;
+            --accent-color: #007bff; --accent-hover: #0056b3;
+        }
+        body.dark-mode {
+            --bg-color: #121212; --text-color: #e0e0e0; --card-bg: #1e1e1e;
+            --input-bg: #2d2d2d; --input-border: #444; --stat-bg: #2d2d2d; --chart-border: #333;
+            --tx-hover: #2a2a2a; --text-muted: #aaa;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.1s, color 0.1s; }
+        .container { max-width: 1000px; margin: auto; position: relative; }
+        
+        .top-bar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; padding-top: 10px; }
+        .theme-tools { display: flex; align-items: center; gap: 15px; }
+        .theme-toggle { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-color); padding: 5px; margin: 0; transition: transform 0.2s; }
+        .theme-toggle:hover { transform: scale(1.1); }
+        
+        .color-palette { display: flex; gap: 8px; background: var(--stat-bg); padding: 8px 12px; border-radius: 20px; border: 1px solid var(--chart-border); }
+        .color-dot { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid var(--card-bg); box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.2s; }
+        .color-dot:hover { transform: scale(1.3); }
+
+        .card { background: var(--card-bg); padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; transition: background-color 0.1s; }
+        input, select { width: 100%; padding: 12px; margin-top: 10px; box-sizing: border-box; border-radius: 5px; border: 1px solid var(--input-border); font-family: inherit; background-color: var(--input-bg); color: var(--text-color); transition: border-color 0.2s; }
+        input:focus, select:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+        
+        button.action-btn { width: 100%; padding: 12px; margin-top: 10px; border-radius: 5px; background-color: var(--accent-color); color: white; border: none; cursor: pointer; font-weight: bold; transition: background-color 0.3s; font-family: inherit; }
+        button.action-btn:hover { background-color: var(--accent-hover); }
+        
+        /* MODERN MENÜ BUTONLARI */
+        #portal-menu { display: none; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .menu-btn { background-color: var(--card-bg); color: var(--accent-color); border: 2px solid var(--accent-color); flex: 1; min-width: 110px; padding: 12px; font-size: 14px; border-radius: 8px; margin-top: 0; cursor: pointer; font-weight: bold; transition: all 0.2s; opacity: 0.8; }
+        .menu-btn:hover { opacity: 1; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .menu-btn.active { background-color: var(--accent-color); color: white; border-color: var(--accent-color); opacity: 1; }
+        .menu-btn.logout-btn { color: #dc3545; border-color: #dc3545; }
+        .menu-btn.logout-btn:hover { background-color: #dc3545; color: white; }
+
+        .page-section { display: none; }
+        #auth-section { max-width: 400px; margin: 30px auto; }
+        .pwd-wrapper { position: relative; width: 100%; }
+        .pwd-toggle { position: absolute; right: 15px; top: 22px; cursor: pointer; font-size: 18px; user-select: none; color: #888; }
+        .toggle-link { color: var(--accent-color); cursor: pointer; text-align: center; display: block; margin-top: 15px; text-decoration: underline; }
+        
+        /* DÜZELTME: TÜM KARTLAR TEMA RENGİNE UYARLANDI */
+        .stats { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-box { background: var(--stat-bg); padding: 15px; border-radius: 8px; flex: 1 1 20%; min-width: 150px; text-align: center; border: 1px solid var(--chart-border); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .stat-box.theme-bordered { border-bottom: 4px solid var(--accent-color); }
+        .stat-box h4 { margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-box span.theme-text { display: block; font-size: 22px; font-weight: bold; color: var(--accent-color); transition: color 0.2s; }
+
+        .form-group { margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid var(--chart-border); }
+        .charts-container { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 20px; }
+        .chart-box { flex: 2; min-width: 300px; background: var(--card-bg); border: 1px solid var(--chart-border); border-radius: 8px; padding: 15px; }
+        .pie-box { flex: 1; min-width: 250px; background: var(--card-bg); border: 1px solid var(--chart-border); border-radius: 8px; padding: 15px; display: flex; justify-content: center; align-items: center; }
+
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { min-width: 250px; padding: 15px 20px; border-radius: 8px; color: white; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); opacity: 0; transform: translateX(100%); animation: slideIn 0.3s forwards, fadeOut 0.3s forwards 2.7s; display: flex; align-items: center; gap: 10px; font-size: 15px; }
+        .toast.success { background-color: #28a745; border-left: 5px solid #155724; }
+        .toast.error { background-color: #dc3545; border-left: 5px solid #721c24; }
+        .toast.info { background-color: #17a2b8; border-left: 5px solid #117a8b; }
+        .toast.warning { background-color: #ffc107; color: #333; border-left: 5px solid #d39e00; }
+        @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateX(100%); } }
+
+        .progress-wrapper { margin-top: 15px; padding: 15px; background-color: var(--stat-bg); border-radius: 8px; border: 1px solid var(--chart-border); }
+        .progress-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; font-size: 16px; }
+        .progress-container { width: 100%; background-color: #ccc; border-radius: 10px; overflow: hidden; height: 18px; }
+        .progress-bar { height: 100%; width: 0%; transition: width 0.8s ease-in-out, background-color 0.8s; }
+
+        .tx-list { list-style: none; padding: 0; margin: 0; }
+        .tx-item { display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid var(--chart-border); transition: background-color 0.2s; border-radius: 8px; margin-bottom: 8px; background-color: var(--card-bg); border: 1px solid var(--chart-border); }
+        .tx-item:hover { background-color: var(--tx-hover); }
+        .tx-left { display: flex; align-items: center; gap: 15px; }
+        .tx-icon { font-size: 24px; background: var(--stat-bg); width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+        .tx-details { display: flex; flex-direction: column; }
+        .tx-title { font-weight: bold; font-size: 16px; }
+        .tx-date { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+        .tx-right { text-align: right; display: flex; align-items: center; gap: 15px; }
+        .tx-amount { font-weight: bold; font-size: 16px; }
+        .tx-amount.income { color: #28a745; }
+        .tx-amount.expense { color: #dc3545; }
+        .tx-amount.warning { color: #fd7e14; }
+
+        .alert-box { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 15px; display: none; transition: background-color 0.1s, color 0.1s;}
+        .alert-box.success { background-color: #d4edda; color: #155724; }
+        .alert-box.danger { background-color: #f8d7da; color: #721c24; }
+        body.dark-mode .alert-box.success { background-color: #0f3a1b; color: #8cf0a2; }
+        body.dark-mode .alert-box.danger { background-color: #4a151b; color: #ffb3b8; }
+
+        .filter-group { display: flex; gap: 10px; flex-wrap: wrap; margin: 0; }
+        .filter-group select { width: auto; min-width: 160px; font-weight: bold; margin: 0; background-color: var(--card-bg); border: 2px solid var(--accent-color); color: var(--accent-color); transition: all 0.2s; }
+        .filter-group select:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+        
+        .file-upload-wrapper { position: relative; overflow: hidden; display: inline-block; width: 100%; margin-top: 10px;}
+        .file-upload-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; }
+        .file-upload-btn { border: 2px dashed var(--accent-color); color: var(--accent-color); background-color: var(--card-bg); padding: 20px; text-align: center; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .file-upload-btn:hover { background-color: var(--tx-hover); }
+
+        .trend-card { background: var(--stat-bg); padding: 15px; border-radius: 8px; border-left: 4px solid var(--accent-color); margin-bottom: 10px; }
+        .trend-title { font-size: 14px; color: var(--text-muted); margin-bottom: 5px; }
+        .trend-value { font-size: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<div class="container">
+    
+    <div class="top-bar">
+        <div class="theme-tools">
+            <div class="color-palette" title="Uygulama Rengini Seç">
+                <div class="color-dot" style="background-color: #007bff;" title="Mavi" onclick="setAccentColor('#007bff', '#0056b3', false)"></div>
+                <div class="color-dot" style="background-color: #20c997;" title="Yeşil" onclick="setAccentColor('#20c997', '#17a57a', false)"></div>
+                <div class="color-dot" style="background-color: #6f42c1;" title="Mor" onclick="setAccentColor('#6f42c1', '#543191', false)"></div>
+                <div class="color-dot" style="background-color: #fd7e14;" title="Turuncu" onclick="setAccentColor('#fd7e14', '#d66a10', false)"></div>
+                <div class="color-dot" style="background-color: #e83e8c;" title="Pembe" onclick="setAccentColor('#e83e8c', '#c23475', false)"></div>
+                <div class="color-dot" style="background: linear-gradient(135deg, #333 50%, #ddd 50%); border-color: #999;" title="Klasik (Aydınlıkta Siyah / Karanlıkta Beyaz)" onclick="setAccentColor('#212529', '#000000', true)"></div>
+            </div>
+            <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="Koyu/Aydınlık Mod">🌙</button>
+        </div>
+    </div>
+
+    <div class="card" id="auth-section">
+        <h2 id="auth-title">Sisteme Giriş Yapın</h2>
+        <input type="text" id="username" placeholder="Kullanıcı Adı">
+        <div class="pwd-wrapper">
+            <input type="password" id="password" placeholder="Şifre">
+            <span class="pwd-toggle" onclick="togglePasswordVisibility('password', this)">👁️</span>
+        </div>
+        <div class="pwd-wrapper" id="confirm-pwd-container" style="display: none;">
+            <input type="password" id="password-confirm" placeholder="Şifrenizi Tekrar Girin">
+            <span class="pwd-toggle" onclick="togglePasswordVisibility('password-confirm', this)">👁️</span>
+        </div>
+        <button class="action-btn" id="auth-btn" onclick="handleAuth()">Giriş Yap</button>
+        <p id="auth-msg" style="color:#dc3545; text-align: center; font-weight: bold; margin-top:10px;"></p>
+        <span class="toggle-link" onclick="toggleAuthMode()" id="auth-toggle">Hesabınız yok mu? Kayıt Olun</span>
+    </div>
+
+    <div id="portal-menu">
+        <button class="menu-btn active" onclick="showPage('dashboard-page', this)">📊 Panel & Tahmin</button>
+        <button class="menu-btn" onclick="showPage('add-data-page', this)">➕ Veri Ekle</button>
+        <button class="menu-btn" onclick="showPage('targets-page', this)">🎯 Hedefler</button>
+        <button class="menu-btn" onclick="showPage('bills-page', this)">📅 Faturalar</button>
+        <button class="menu-btn" onclick="showPage('investments-page', this)">📈 Yatırımlar</button>
+        <button class="menu-btn" onclick="showPage('trends-page', this)">📉 Trendler</button>
+        <button class="menu-btn" onclick="showPage('convert-page', this)">💱 Çevirici</button>
+        <button class="menu-btn" onclick="showPage('export-page', this)">🔄 Veri Aktar</button>
+        <button class="menu-btn logout-btn" onclick="logout()">🚪 Çıkış</button>
+    </div>
+
+    <div id="dashboard-page" class="page-section card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <h2 style="margin: 0; border-left: 4px solid var(--accent-color); padding-left: 10px;">Finansal Özet Paneli</h2>
+            <div class="filter-group">
+                <select id="dashboard-time-filter" onchange="loadDashboard()">
+                    <option value="all">🗓️ Tüm Zamanlar</option>
+                    <option value="30">📅 Son 30 Gün</option>
+                    <option value="7">📆 Son 7 Gün</option>
+                </select>
+                <select id="dashboard-account-filter" onchange="loadDashboard()">
+                    <option value="">🌍 Tüm Hesapların Özeti</option>
+                </select>
+            </div>
+        </div>
+        <hr style="border-color: var(--chart-border);">
+        
+        <div id="upcoming-bills-widget" style="display:none; margin-bottom: 20px;"></div>
+        <div id="budget-warning" class="alert-box"></div>
+        
+        <div class="stats">
+            <div class="stat-box theme-bordered">
+                <h4>Toplam Gelir</h4><span id="stat-income" class="theme-text">0 TRY</span>
+            </div>
+            <div class="stat-box theme-bordered">
+                <h4>Toplam Gider</h4><span id="stat-expense" class="theme-text">0 TRY</span>
+            </div>
+            <div class="stat-box theme-bordered">
+                <h4>Mevcut Bakiye</h4><span id="current-balance" class="theme-text">0 TRY</span>
+            </div>
+            <div class="stat-box theme-bordered">
+                <h4>Tahmini Gider (30 Gün)</h4><span id="forecast-amount" class="theme-text">Hesaplanıyor...</span>
+            </div>
+        </div>
+
+        <div class="progress-wrapper" id="progress-wrapper" style="display: none;">
+            <div class="progress-header"><span>Genel Bütçe Doluluk Oranı (Tahmini)</span><span id="progress-text">%0</span></div>
+            <div class="progress-container"><div id="budget-progress-bar" class="progress-bar"></div></div>
+        </div>
+
+        <h3 style="margin-top: 25px; margin-bottom: 10px;">🎯 Kategori Hedef Durumu</h3>
+        <div id="category-budgets-wrapper" style="display:flex; flex-wrap:wrap; gap:15px; margin-bottom: 20px;"></div>
+        
+        <div class="charts-container" style="margin-top: 20px;">
+            <div class="chart-box"><canvas id="expenseChart" height="200"></canvas></div>
+            <div class="pie-box"><canvas id="categoryPieChart" height="200"></canvas></div>
+        </div>
+        
+        <hr style="border-color: var(--chart-border);">
+        <h3 style="margin-bottom: 15px;">İşlem Geçmişi</h3>
+        <ul id="transaction-list" class="tx-list"></ul>
+    </div>
+
+    <div id="add-data-page" class="page-section card">
+        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">Sisteme Yeni Veri Girin</h2>
+        <div class="form-group">
+            <h3>💳 Yeni Hesap / Cüzdan Ekle</h3>
+            <input type="text" id="acc-name" placeholder="Hesap Adı (Örn: Maaş Hesabı, Kredi Kartı)">
+            <select id="acc-currency">
+                <option value="TRY">Türk Lirası (TRY)</option><option value="USD">Dolar (USD)</option><option value="EUR">Euro (EUR)</option>
+            </select>
+            <input type="number" id="acc-balance" placeholder="Başlangıç Bakiyesi (Örn: 5000)" step="0.01">
+            <button class="action-btn" onclick="addAccount()">Hesabı Oluştur</button>
+        </div>
+        <div class="form-group" style="border-bottom: none;">
+            <h3>💸 Yeni İşlem (Gelir / Gider) Ekle</h3>
+            <select id="trans-account"><option value="">Önce hesap oluşturun...</option></select>
+            <select id="trans-type" onchange="handleTransactionTypeChange()" style="font-weight: bold;">
+                <option value="EXPENSE">📉 Gider (Harcama Ekle & Bakiyeyi Düşür)</option>
+                <option value="INCOME">📈 Gelir (Para Ekle & Bakiyeyi Artır)</option>
+            </select>
+            <select id="trans-category"><option value="">Kategori Seçiniz (İsteğe Bağlı)</option></select>
+            <input type="number" id="trans-amount" placeholder="Miktar (Örn: 150.50)" step="0.01">
+            <input type="date" id="trans-date">
+            <input type="text" id="trans-desc" placeholder="Açıklama (Örn: Market alışverişi)">
+            <button class="action-btn" onclick="addTransaction()">İşlemi Kaydet & Bakiyeyi Güncelle</button>
+        </div>
+    </div>
+
+    <div id="targets-page" class="page-section card">
+        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">🎯 Aylık Kategori Limitleri</h2>
+        <p>Kategorileriniz için aylık harcama limiti belirleyin. Durumunuzu ana panelden anlık olarak takip edebilirsiniz.</p>
+        <div class="form-group">
+            <select id="budget-set-category"><option value="">Kategori Seçin...</option></select>
+            <input type="number" id="budget-set-amount" placeholder="Aylık Limit Miktarı (Örn: 2000)" step="0.01">
+            <button class="action-btn" onclick="saveCategoryBudget()">Hedefi Kaydet / Güncelle</button>
+        </div>
+        <h3 style="margin-top: 20px;">Mevcut Hedefleriniz</h3>
+        <ul id="active-budgets-list" class="tx-list"></ul>
+    </div>
+
+    <div id="bills-page" class="page-section card">
+        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">📅 Otomatik Fatura Takibi</h2>
+        <p>Faturalarınızı ekleyin. Ana panelde tüm faturalarınızı görebilir, son 3 gün kala kırmızı uyarı alabilirsiniz.</p>
+        <div class="form-group">
+            <input type="text" id="bill-name" placeholder="Fatura Adı (Örn: Elektrik Faturası, Netflix)">
+            <input type="number" id="bill-amount" placeholder="Fatura Tutarı (Örn: 350.50)" step="0.01">
+            <input type="date" id="bill-date" title="Son Ödeme Tarihi">
+            <button class="action-btn" onclick="addBill()">Faturayı Kaydet ve Hatırlatıcı Kur</button>
+        </div>
+        <h3 style="margin-top: 20px;">Kayıtlı Faturalarınız</h3>
+        <ul id="active-bills-list" class="tx-list"></ul>
+    </div>
+
+    <div id="investments-page" class="page-section card">
+        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">📈 Yatırım & Portföy Takibi</h2>
+        <p>Döviz, Altın veya Kripto (BTC, ETH) varlıklarınızı ekleyin. <strong>Sistem güncel piyasa verilerini Binance API üzerinden canlı çeker!</strong></p>
+        
+        <div class="stats" style="margin-top: 20px;">
+            <div class="stat-box theme-bordered">
+                <h4>Toplam Portföy Değeri</h4><span id="inv-total-value" class="theme-text">0 TRY</span>
+            </div>
+            <div class="stat-box theme-bordered">
+                <h4>Toplam Kar / Zarar</h4><span id="inv-total-pl" class="theme-text">0 TRY</span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <input type="text" id="inv-name" placeholder="Sembol (Örn: BTC, USD, ALTIN)" style="flex: 2;">
+                <input type="number" id="inv-quantity" placeholder="Adet/Miktar (Örn: 1.5)" step="0.01" style="flex: 1;">
+                <input type="number" id="inv-buy-price" placeholder="Alış Fiyatı (TRY)" step="0.01" style="flex: 1;">
+                
+                <div style="flex: 2; display: flex; gap: 5px;">
+                    <input type="number" id="inv-current-price" placeholder="Güncel Fiyat (TRY)" step="0.01" style="flex: 2; margin-top: 0;">
+                    <button class="action-btn" onclick="getLivePrice()" style="margin-top: 0; flex: 1; padding: 0 10px; font-size: 12px; background-color: #28a745;" title="Gerçek piyasa verisini getir">🔄 Canlı Fiyat</button>
+                </div>
+            </div>
+            <button class="action-btn" onclick="addInvestment()">Portföye Ekle / Güncelle</button>
+        </div>
+        <h3 style="margin-top: 20px;">Varlıklarınız</h3>
+        <ul id="investments-list" class="tx-list"></ul>
+    </div>
+
+    <div id="trends-page" class="page-section card">
+        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">📉 Harcama Trendleri ve Analiz</h2>
+        <p>Sistemdeki verilerinizi analiz ederek harcama alışkanlıklarınızı çıkarıyoruz.</p>
+        
+        <div class="stats" id="trends-summary-boxes" style="margin-top: 20px;"></div>
+
+        <div class="chart-box" style="margin-top: 20px;">
+            <h3 style="text-align:center; margin-top:0;">Kategorik Harcama Trendi (Son 30 Gün)</h3>
+            <div style="position: relative; height: 300px; width: 100%;">
+                <canvas id="trendsBarChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="convert-page" class="page-section card">
+        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">💱 Akıllı Döviz Çevirici</h2>
+        <p>Arka plandaki <strong>Çizge (Graph) ve Dijkstra</strong> algoritmamız, girdiğiniz para birimleri arasındaki en karlı dönüşüm rotasını otomatik olarak bulur.</p>
+        <div class="form-group" style="border: none; padding: 0;">
+            <input type="number" id="conv-amount" placeholder="Çevrilecek Miktar (Örn: 1000)" step="0.01">
+            <div style="display: flex; gap: 10px;">
+                <select id="conv-source" style="flex: 1;"><option value="" disabled selected>Neden Çevrilecek?</option><option value="TRY">Türk Lirası (TRY)</option><option value="USD">Amerikan Doları (USD)</option><option value="EUR">Euro (EUR)</option><option value="GBP">İngiliz Sterlini (GBP)</option></select>
+                <span style="font-size: 24px; margin-top: 15px; color: var(--accent-color);">➔</span>
+                <select id="conv-target" style="flex: 1;"><option value="" disabled selected>Neye Çevrilecek?</option><option value="EUR">Euro (EUR)</option><option value="USD">Amerikan Doları (USD)</option><option value="TRY">Türk Lirası (TRY)</option><option value="GBP">İngiliz Sterlini (GBP)</option></select>
+            </div>
+            <button class="action-btn" onclick="calculateCurrency()" style="padding: 15px; margin-top: 20px;">En Karlı Rotayı Bul ve Hesapla</button>
+        </div>
+        <div id="conv-result-box" style="display: none; padding: 20px; border-radius: 8px; margin-top: 20px; background-color: var(--stat-bg); border: 2px solid var(--accent-color);"></div>
+    </div>
+
+    <div id="export-page" class="page-section card">
+        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">🔄 Veri İçe ve Dışa Aktarma</h2>
+        
+        <div class="form-group">
+            <h3 style="color: var(--accent-color);">📥 CSV'den İçe Aktar (Import)</h3>
+            <p style="font-size: 14px; color: var(--text-muted);">Sistemden indirdiğiniz kendi CSV dosyanızı veya standart formatlı dosyalarınızı otomatik olarak yükleyebilirsiniz.</p>
+            <select id="import-account"><option value="">Verilerin ekleneceği hesabı seçin...</option></select>
+            
+            <div class="file-upload-wrapper">
+                <div class="file-upload-btn" id="file-upload-text">📁 Tıklayıp CSV Dosyası Seçin</div>
+                <input type="file" id="import-file" accept=".csv" onchange="document.getElementById('file-upload-text').innerText = 'Seçilen Dosya: ' + this.files[0].name">
+            </div>
+            <button class="action-btn" onclick="importCSV()">Verileri Sisteme Yükle</button>
+        </div>
+
+        <div class="form-group" style="border: none;">
+            <h3 style="color: var(--accent-color);">📤 Verileri İndir (Export)</h3>
+            <p>Tüm finansal geçmişinizi Excel formatında indirebilirsiniz.</p>
+            <button class="action-btn" onclick="downloadCSV()" style="padding: 15px; font-size: 16px;">Tüm İşlemleri İndir (.csv)</button>
+        </div>
+    </div>
+
+</div>
+
+<div id="pay-bill-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center;">
+    <div class="card" style="width: 350px; margin:0;">
+        <h3>💳 Fatura Öde</h3>
+        <p id="pay-bill-info"></p>
+        <select id="pay-bill-account"><option value="">Hangi hesaptan ödenecek?</option></select>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button class="action-btn" style="background-color:#6c757d;" onclick="document.getElementById('pay-bill-modal').style.display='none'">İptal</button>
+            <button class="action-btn" onclick="confirmPayBill()">Ödemeyi Yap</button>
+        </div>
+    </div>
+</div>
+
+<div id="update-inv-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center;">
+    <div class="card" style="width: 350px; margin:0;">
+        <h3>🔄 Fiyat Güncelle</h3>
+        <p id="update-inv-info"></p>
+        <input type="number" id="update-inv-price" placeholder="Yeni Güncel Fiyat" step="0.01">
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button class="action-btn" style="background-color:#6c757d;" onclick="document.getElementById('update-inv-modal').style.display='none'">İptal</button>
+            <button class="action-btn" onclick="confirmUpdateInvestment()">Güncelle</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let accessToken = ""; let isLoginMode = true; let myLineChart = null; let myPieChart = null; let myTrendChart = null;
+    const categoryIcons = { 'Faturalar': '💡', 'Market & Gıda': '🛒', 'Kafe & Restoran': '🍔', 'Ulaşım': '🚌', 'Eğitim': '📚', 'Kişisel Bakım': '🧴', 'Eğlence': '🎬', 'Diğer': '📦' };
+
+    let categoryBudgets = JSON.parse(localStorage.getItem('categoryBudgets')) || {};
+    let userBills = JSON.parse(localStorage.getItem('userBills')) || [];
+    let userInvestments = JSON.parse(localStorage.getItem('userInvestments')) || [];
+    let payingBillIndex = null; let updatingInvIndex = null;
+
+    let isClassicThemeActive = localStorage.getItem('isClassicTheme') === 'true';
+
+    function setAccentColor(colorHex, hoverHex, isClassic = false) {
+        isClassicThemeActive = isClassic; localStorage.setItem('isClassicTheme', isClassic);
+        let finalHex = colorHex; let finalHover = hoverHex;
+        
+        if (isClassic) { 
+            const isDark = document.body.classList.contains('dark-mode'); 
+            if (isDark) { finalHex = '#e0e0e0'; finalHover = '#ffffff'; } 
+            else { finalHex = '#212529'; finalHover = '#000000'; } 
+        }
+        
+        document.documentElement.style.setProperty('--accent-color', finalHex); 
+        document.documentElement.style.setProperty('--accent-hover', finalHover);
+        
+        // 4'LÜ KARTLARI DİNAMİK GÜNCELLE
+        document.querySelectorAll('.theme-text').forEach(el => el.style.color = finalHex);
+        document.querySelectorAll('.theme-bordered').forEach(el => el.style.borderBottomColor = finalHex);
+
+        if (!isClassic) { localStorage.setItem('accentColor', finalHex); localStorage.setItem('accentHover', finalHover); }
+        
+        if (myLineChart) {
+            myLineChart.data.datasets[0].borderColor = finalHex; myLineChart.data.datasets[0].pointBackgroundColor = finalHex;
+            const rgb = hexToRgb(finalHex); const isDark = document.body.classList.contains('dark-mode');
+            myLineChart.data.datasets[0].backgroundColor = isDark ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)` : `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`; myLineChart.update();
+        }
+        // Trend grafiği renklerini güncelle
+        if (myTrendChart) { loadTrends(); } 
+    }
+
+    function hexToRgb(hex) { let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : {r: 0, g: 123, b: 255}; }
+    function applySavedTheme() { if (isClassicThemeActive) { setAccentColor('#212529', '#000000', true); } else { const savedAccent = localStorage.getItem('accentColor'); const savedHover = localStorage.getItem('accentHover'); if (savedAccent && savedHover) { setAccentColor(savedAccent, savedHover, false); } } }
+
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container'); const toast = document.createElement('div');
+        toast.className = `toast ${type}`; let icon = type === 'error' ? "❌" : (type === 'info' ? "ℹ️" : (type === 'warning' ? "⚠️" : "✅"));
+        toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`; container.appendChild(toast); setTimeout(() => { toast.remove(); }, 3500);
+    }
+
+    if (localStorage.getItem('theme') === 'dark') { document.body.classList.add('dark-mode'); document.getElementById('theme-icon').innerText = '☀️'; Chart.defaults.color = '#e0e0e0'; } else { Chart.defaults.color = '#333'; }
+    applySavedTheme();
+
+    function toggleTheme() {
+        const body = document.body; body.classList.toggle('dark-mode'); const isDark = body.classList.contains('dark-mode');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light'); document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙'; Chart.defaults.color = isDark ? '#e0e0e0' : '#333';
+        applySavedTheme(); 
+        if (myLineChart) { const gridColor = isDark ? '#444' : '#e0e0e0'; myLineChart.options.scales.x.grid.color = gridColor; myLineChart.options.scales.y.grid.color = gridColor; myLineChart.update(); }
+        if (myPieChart) { myPieChart.data.datasets[0].borderColor = isDark ? '#1e1e1e' : '#ffffff'; myPieChart.update(); }
+        if (myTrendChart) { const gridColor = isDark ? '#444' : '#e0e0e0'; myTrendChart.options.scales.x.grid.color = gridColor; myTrendChart.options.scales.y.grid.color = gridColor; myTrendChart.update(); }
+    }
+
+    function togglePasswordVisibility(inputId, iconElement) { const input = document.getElementById(inputId); if (input.type === "password") { input.type = "text"; iconElement.innerText = "🙈"; } else { input.type = "password"; iconElement.innerText = "👁️"; } }
+
+    function toggleAuthMode() {
+        isLoginMode = !isLoginMode; document.getElementById('auth-title').innerText = isLoginMode ? "Sisteme Giriş Yapın" : "Yeni Hesap Oluşturun";
+        document.getElementById('auth-btn').innerText = isLoginMode ? "Giriş Yap" : "Kayıt Ol"; document.getElementById('auth-toggle').innerText = isLoginMode ? "Hesabınız yok mu? Kayıt Olun" : "Zaten hesabınız var mı? Giriş Yapın";
+        document.getElementById('auth-msg').innerText = ""; document.getElementById('confirm-pwd-container').style.display = isLoginMode ? "none" : "block";
+    }
+
+    async function handleAuth() {
+        const u = document.getElementById('username').value; const p = document.getElementById('password').value;
+        if (!isLoginMode) {
+            const pConf = document.getElementById('password-confirm').value;
+            if (p !== pConf) { document.getElementById('auth-msg').innerText = "Hata: Şifreler eşleşmiyor!"; return; }
+            if (p.length < 4) { document.getElementById('auth-msg').innerText = "Hata: Şifre çok kısa!"; return; }
+            const res = await fetch('http://127.0.0.1:8000/api/register/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+            if (res.ok) { showToast("Kayıt başarılı! Lütfen giriş yapın.", "success"); toggleAuthMode(); document.getElementById('password').value = ""; return; } else { document.getElementById('auth-msg').innerText = "Kullanıcı adı alınmış veya geçersiz."; return; }
+        }
+        const res = await fetch('http://127.0.0.1:8000/api/token/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+        if(res.ok) {
+            const data = await res.json(); accessToken = data.access;
+            document.getElementById('auth-section').style.display = 'none'; document.getElementById('portal-menu').style.display = 'flex';
+            showToast("Sisteme başarıyla giriş yaptınız.", "success"); await loadFormOptions(); showPage('dashboard-page', document.querySelector('.menu-btn'));
+        } else { document.getElementById('auth-msg').innerText = "Hatalı kullanıcı adı veya şifre!"; }
+    }
+
+    function logout() {
+        accessToken = ""; document.getElementById('portal-menu').style.display = 'none'; document.querySelectorAll('.page-section').forEach(p => p.style.display = 'none'); document.getElementById('auth-section').style.display = 'block';
+        document.getElementById('username').value = ""; document.getElementById('password').value = ""; document.getElementById('password-confirm').value = ""; document.getElementById('auth-msg').innerText = ""; showToast("Güvenli bir şekilde çıkış yapıldı.", "info");
+    }
+
+    function showPage(pageId, btnElement) {
+        document.querySelectorAll('.page-section').forEach(p => p.style.display = 'none'); document.getElementById(pageId).style.display = 'block';
+        document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active')); btnElement.classList.add('active');
+        if (pageId === 'dashboard-page') loadDashboard(); 
+        if (pageId === 'add-data-page' || pageId === 'targets-page' || pageId === 'export-page') loadFormOptions(); 
+        if (pageId === 'targets-page') renderActiveBudgets();
+        if (pageId === 'bills-page') renderBills();
+        if (pageId === 'investments-page') renderInvestments();
+        if (pageId === 'trends-page') loadTrends();
+    }
+
+    // --- MÜKEMMEL API ENTEGRASYONU: CANLI YATIRIM VERİSİ ---
+    async function getLivePrice() {
+        const symbolInput = document.getElementById('inv-name').value.toUpperCase().trim();
+        const priceInput = document.getElementById('inv-current-price');
+
+        if(!symbolInput) { showToast("Önce Varlık Adı / Sembolü girin (Örn: BTC, USD, ALTIN)", "warning"); return; }
+
+        showToast("Binance API üzerinden canlı veri çekiliyor...", "info");
+
+        try {
+            let price = 0;
+            // Dolar Kuru (USDTTRY) her ihtimale karşı lazım olacak
+            const usdtRes = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=USDTTRY');
+            const usdtData = await usdtRes.json();
+            const usdToTry = parseFloat(usdtData.price);
+
+            if (symbolInput === 'USD' || symbolInput === 'DOLAR' || symbolInput === 'USDT') {
+                price = usdToTry;
+            } else if (symbolInput === 'EUR' || symbolInput === 'EURO') {
+                const eurRes = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=EURTRY');
+                const eurData = await eurRes.json();
+                price = parseFloat(eurData.price);
+            } else if (symbolInput === 'BTC' || symbolInput === 'BITCOIN') {
+                const btcRes = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCTRY');
+                const btcData = await btcRes.json();
+                price = parseFloat(btcData.price);
+            } else if (symbolInput === 'ETH' || symbolInput === 'ETHEREUM') {
+                const ethRes = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHTRY');
+                const ethData = await ethRes.json();
+                price = parseFloat(ethData.price);
+            } else if (symbolInput.includes('ALTIN') || symbolInput === 'GRAM' || symbolInput === 'XAU') {
+                // Gram altın hesaplama: (Ons Altın Fiyatı / 31.1035) * USD/TRY Kuru
+                const paxgRes = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=PAXGUSDT');
+                const paxgData = await paxgRes.json();
+                const onsUsd = parseFloat(paxgData.price);
+                price = (onsUsd / 31.1035) * usdToTry;
+            } else {
+                // Bilinmeyen bir Kripto sembolü denendiğinde otomatik TRY çiftini ara
+                try {
+                    const cryptoRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbolInput}TRY`);
+                    const cryptoData = await cryptoRes.json();
+                    if(cryptoData.price) price = parseFloat(cryptoData.price);
+                } catch(e) {
+                    showToast("Otomatik fiyat bulunamadı, lütfen kendiniz girin.", "warning"); return;
+                }
+            }
+
+            if(price > 0) {
+                priceInput.value = price.toFixed(2);
+                showToast(`${symbolInput} anlık piyasa fiyatı güncellendi!`, "success");
+            }
+        } catch(error) {
+            showToast("Veri çekilemedi. Bağlantı engellenmiş olabilir.", "error");
+        }
+    }
+
+    function addInvestment() {
+        const name = document.getElementById('inv-name').value; const qty = parseFloat(document.getElementById('inv-quantity').value);
+        const buyPrice = parseFloat(document.getElementById('inv-buy-price').value); const currentPrice = parseFloat(document.getElementById('inv-current-price').value);
+        if(!name || isNaN(qty) || isNaN(buyPrice) || isNaN(currentPrice)) { showToast("Lütfen tüm alanları geçerli sayılarla doldurun.", "error"); return; }
+        
+        const existingIdx = userInvestments.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
+        if(existingIdx !== -1) { userInvestments[existingIdx] = {name, qty, buyPrice, currentPrice}; showToast(`${name} güncellendi.`, "success"); } 
+        else { userInvestments.push({name, qty, buyPrice, currentPrice}); showToast(`${name} portföye eklendi.`, "success"); }
+        
+        localStorage.setItem('userInvestments', JSON.stringify(userInvestments));
+        document.getElementById('inv-name').value = ""; document.getElementById('inv-quantity').value = ""; document.getElementById('inv-buy-price').value = ""; document.getElementById('inv-current-price').value = "";
+        renderInvestments();
+    }
+
+    function renderInvestments() {
+        const list = document.getElementById('investments-list'); list.innerHTML = "";
+        let totalVal = 0; let totalPL = 0;
+        
+        userInvestments.forEach((inv, index) => {
+            const currentTotal = inv.qty * inv.currentPrice;
+            const pl = (inv.currentPrice - inv.buyPrice) * inv.qty;
+            const plPercent = ((inv.currentPrice - inv.buyPrice) / inv.buyPrice) * 100;
+            totalVal += currentTotal; totalPL += pl;
+            
+            let plColor = pl >= 0 ? "#28a745" : "#dc3545";
+            let plSign = pl >= 0 ? "+" : "";
+
+            let li = document.createElement('li'); li.className = 'tx-item';
+            li.innerHTML = `
+                <div class="tx-left"><div class="tx-icon">📈</div><div class="tx-details"><span class="tx-title">${inv.name} <span style="font-weight:normal; font-size:12px; color:var(--text-muted);">(${inv.qty} Adet)</span></span><span class="tx-date">Alış: ${inv.buyPrice} | Güncel: <strong>${inv.currentPrice} TRY</strong></span></div></div>
+                <div class="tx-right" style="display:flex; flex-direction:column; align-items:flex-end;">
+                    <span class="tx-amount" style="color:var(--text-color);">${currentTotal.toFixed(2)} TRY</span>
+                    <span class="tx-date" style="color:${plColor}; font-weight:bold; margin-top:0;">${plSign}${pl.toFixed(2)} TRY (${plSign}${plPercent.toFixed(2)}%)</span>
+                    <div style="margin-top:5px; display:flex; gap:10px;"><button onclick="openUpdateInvModal(${index})" style="background:none; border:none; color:var(--accent-color); cursor:pointer; font-size:14px; text-decoration:underline;">Fiyat Güncelle</button><button onclick="deleteInvestment(${index})" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:14px;">🗑️ Sil</button></div>
+                </div>`;
+            list.appendChild(li);
+        });
+        
+        if(userInvestments.length === 0) list.innerHTML = "<li style='padding: 15px; color: var(--text-muted); text-align: center;'>Portföyünüz boş.</li>";
+        
+        document.getElementById('inv-total-value').innerText = `${totalVal.toFixed(2)} TRY`;
+        document.getElementById('inv-total-pl').innerText = `${totalPL >= 0 ? '+' : ''}${totalPL.toFixed(2)} TRY`;
+    }
+
+    function deleteInvestment(index) { userInvestments.splice(index, 1); localStorage.setItem('userInvestments', JSON.stringify(userInvestments)); renderInvestments(); showToast("Varlık silindi.", "info"); }
+    function openUpdateInvModal(index) { updatingInvIndex = index; document.getElementById('update-inv-info').innerText = `${userInvestments[index].name} için yeni güncel fiyatı girin:`; document.getElementById('update-inv-price').value = userInvestments[index].currentPrice; document.getElementById('update-inv-modal').style.display = 'flex'; }
+    function confirmUpdateInvestment() {
+        const newPrice = parseFloat(document.getElementById('update-inv-price').value);
+        if(isNaN(newPrice)) { showToast("Geçerli bir fiyat girin.", "error"); return; }
+        userInvestments[updatingInvIndex].currentPrice = newPrice; localStorage.setItem('userInvestments', JSON.stringify(userInvestments));
+        document.getElementById('update-inv-modal').style.display = 'none'; showToast("Fiyat güncellendi!", "success"); renderInvestments();
+    }
+
+
+    // --- TRENDLER MANTIĞI VE DÜZELTİLMİŞ RENKLİ GRAFİK ---
+    async function loadTrends() {
+        const txRes = await fetch('http://127.0.0.1:8000/api/transactions/', { headers: { 'Authorization': 'Bearer ' + accessToken } });
+        if(!txRes.ok) return;
+        let txData = await txRes.json();
+        let expenses = txData.filter(t => t.transaction_type === 'EXPENSE');
+        
+        let categoryMap = {}; const catRes = await fetch('http://127.0.0.1:8000/api/categories/', { headers: { 'Authorization': 'Bearer ' + accessToken }});
+        if(catRes.ok) { const categories = await catRes.json(); categories.forEach(c => { categoryMap[c.id] = c.name; }); }
+
+        const today = new Date();
+        const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(today.getDate() - 30);
+        const sixtyDaysAgo = new Date(); sixtyDaysAgo.setDate(today.getDate() - 60);
+
+        let current30DaysTotal = 0; let previous30DaysTotal = 0; let currentCatTotals = {};
+        
+        expenses.forEach(t => {
+            const tDate = new Date(t.date); const amount = parseFloat(t.amount);
+            if (tDate >= thirtyDaysAgo) { current30DaysTotal += amount; let catName = t.category ? categoryMap[t.category] : 'Diğer'; currentCatTotals[catName] = (currentCatTotals[catName] || 0) + amount; } 
+            else if (tDate >= sixtyDaysAgo && tDate < thirtyDaysAgo) { previous30DaysTotal += amount; }
+        });
+
+        let topCat = "Yok"; let topCatVal = 0;
+        for (let cat in currentCatTotals) { if(currentCatTotals[cat] > topCatVal) { topCatVal = currentCatTotals[cat]; topCat = cat; } }
+
+        let changeText = "Veri yetersiz"; let changeColor = "var(--text-muted)";
+        if(previous30DaysTotal > 0) {
+            const diff = current30DaysTotal - previous30DaysTotal; const percent = (diff / previous30DaysTotal) * 100;
+            if(percent > 0) { changeText = `%${percent.toFixed(1)} Artış 📈`; changeColor = "#dc3545"; } 
+            else { changeText = `%${Math.abs(percent).toFixed(1)} Azalış 📉`; changeColor = "#28a745"; } 
+        }
+
+        const summaryDiv = document.getElementById('trends-summary-boxes');
+        summaryDiv.innerHTML = `
+            <div class="trend-card" style="flex:1; min-width:200px;"><div class="trend-title">Son 30 Gün Toplam Harcama</div><div class="trend-value">${current30DaysTotal.toFixed(2)} TRY</div><div style="font-size:12px; color:${changeColor}; margin-top:5px; font-weight:bold;">Önceki aya göre: ${changeText}</div></div>
+            <div class="trend-card" style="flex:1; min-width:200px;"><div class="trend-title">En Çok Harcanan Kategori</div><div class="trend-value">${categoryIcons[topCat] || ''} ${topCat}</div><div style="font-size:12px; color:var(--text-muted); margin-top:5px;">Toplam: <strong>${topCatVal.toFixed(2)} TRY</strong></div></div>
+        `;
+
+        const ctx = document.getElementById('trendsBarChart').getContext('2d');
+        if(myTrendChart) myTrendChart.destroy();
+        
+        let labels = Object.keys(currentCatTotals); let data = Object.values(currentCatTotals);
+        const isDark = document.body.classList.contains('dark-mode'); const gridColor = isDark ? '#444' : '#e0e0e0';
+        
+        // Pasta grafiğindeki o şahane 8'li renk dizisi
+        const barColors = ['#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6f42c1', '#e83e8c', '#fd7e14'];
+
+        myTrendChart = new Chart(ctx, {
+            type: 'bar',
+            data: { labels: labels, datasets: [{ label: 'Son 30 Gün Harcamaları (TRY)', data: data, backgroundColor: barColors.slice(0, data.length), borderRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { display: false } }, y: { grid: { color: gridColor }, beginAtZero: true } }, plugins: { legend: { display: false } } }
+        });
+    }
+
+    // --- FATURA ---
+    function addBill() {
+        const name = document.getElementById('bill-name').value; const amount = document.getElementById('bill-amount').value; const date = document.getElementById('bill-date').value;
+        if(!name || !amount || !date) { showToast("Lütfen fatura bilgilerini eksiksiz girin.", "error"); return; }
+        userBills.push({ name, amount: parseFloat(amount), date }); localStorage.setItem('userBills', JSON.stringify(userBills));
+        showToast("Fatura başarıyla kaydedildi.", "success"); document.getElementById('bill-name').value = ""; document.getElementById('bill-amount').value = ""; document.getElementById('bill-date').value = ""; renderBills();
+    }
+
+    function renderBills() {
+        const list = document.getElementById('active-bills-list'); list.innerHTML = ""; const today = new Date();
+        userBills.sort((a,b) => new Date(a.date) - new Date(b.date));
+        userBills.forEach((bill, index) => {
+            const billDate = new Date(bill.date); const timeDiff = billDate.getTime() - today.getTime(); const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+            let statusText = `${daysDiff} gün var`; let statusColor = "var(--text-muted)"; let amountClass = "";
+            if (daysDiff < 0) { statusText = `${Math.abs(daysDiff)} gün gecikti!`; statusColor = "#dc3545"; amountClass = "expense"; } 
+            else if (daysDiff <= 3) { statusText = `Yaklaşıyor (${daysDiff} gün)!`; statusColor = "#fd7e14"; amountClass = "warning"; }
+            let li = document.createElement('li'); li.className = 'tx-item';
+            li.innerHTML = `<div class="tx-left"><div class="tx-icon">🧾</div><div class="tx-details"><span class="tx-title">${bill.name}</span><span class="tx-date" style="color:${statusColor}; font-weight:bold;">Tarih: ${bill.date} (${statusText})</span></div></div>
+                <div class="tx-right"><span class="tx-amount ${amountClass}">${bill.amount} TRY</span><button class="action-btn" onclick="openPayBillModal(${index})" style="padding:5px 10px; border-radius:5px; margin-top:0;">💳 Öde</button><button onclick="deleteBill(${index})" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:18px;">🗑️</button></div>`; list.appendChild(li);
+        });
+        if(userBills.length === 0) list.innerHTML = "<li style='padding: 15px; color: var(--text-muted); text-align: center;'>Kayıtlı faturanız bulunmuyor.</li>";
+    }
+
+    function deleteBill(index) { userBills.splice(index, 1); localStorage.setItem('userBills', JSON.stringify(userBills)); renderBills(); showToast("Fatura silindi.", "info"); }
+    async function openPayBillModal(index) {
+        payingBillIndex = index; const bill = userBills[index]; document.getElementById('pay-bill-info').innerHTML = `<strong>${bill.name}</strong> - <strong>${bill.amount} TRY</strong> tutarındaki faturayı ödeyeceksiniz.`;
+        const accRes = await fetch('http://127.0.0.1:8000/api/accounts/', { headers: { 'Authorization': 'Bearer ' + accessToken }});
+        if(accRes.ok) {
+            const accounts = await accRes.json(); const accSelect = document.getElementById('pay-bill-account'); accSelect.innerHTML = accounts.length > 0 ? "" : "<option value=''>Hesap bulunamadı</option>";
+            accounts.forEach(a => { accSelect.innerHTML += `<option value="${a.id}">${a.name} (Bakiye: ${a.balance})</option>`; });
+        }
+        document.getElementById('pay-bill-modal').style.display = 'flex';
+    }
+    async function confirmPayBill() {
+        const account_id = document.getElementById('pay-bill-account').value; if(!account_id) { showToast("Lütfen bir hesap seçin.", "error"); return; }
+        const bill = userBills[payingBillIndex]; const today = new Date().toISOString().split('T')[0];
+        const res = await fetch('http://127.0.0.1:8000/api/transactions/', { method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ account: account_id, category: null, amount: bill.amount, transaction_type: 'EXPENSE', date: today + "T12:00:00Z", description: `Fatura Ödemesi: ${bill.name}` }) });
+        if(res.ok) { showToast("Fatura ödendi ve bakiyeden düşüldü!", "success"); userBills.splice(payingBillIndex, 1); localStorage.setItem('userBills', JSON.stringify(userBills)); document.getElementById('pay-bill-modal').style.display = 'none'; renderBills(); } 
+        else { showToast("Ödeme kaydedilirken hata oluştu.", "error"); }
+    }
+
+    // --- CSV IMPORT (YAPAY ZEKA MANTIKLI) ---
+    async function importCSV() {
+        const account_id = document.getElementById('import-account').value; const fileInput = document.getElementById('import-file');
+        if(!account_id) { showToast("Lütfen verilerin ekleneceği hesabı seçin.", "error"); return; }
+        if(fileInput.files.length === 0) { showToast("Lütfen bir CSV dosyası seçin.", "error"); return; }
+
+        const file = fileInput.files[0]; const reader = new FileReader();
+
+        reader.onload = async function(e) {
+            const text = e.target.result; const rows = text.split(/\r?\n/); 
+            let successCount = 0; let failCount = 0;
+
+            for(let i=1; i<rows.length; i++) {
+                const row = rows[i].trim(); if(!row) continue;
+                let cols = []; let inQuotes = false; let currentVal = '';
+                for(let char of row) {
+                    if(char === '"') inQuotes = !inQuotes;
+                    else if((char === ',' || char === ';') && !inQuotes) { cols.push(currentVal.trim()); currentVal = ''; }
+                    else currentVal += char;
+                }
+                cols.push(currentVal.trim());
+                cols = cols.map(c => c.replace(/^["']|["']$/g, '').trim());
+
+                let dateStr = cols.find(c => c.match(/^\d{4}-\d{2}-\d{2}/)); 
+                if(dateStr) dateStr = dateStr.substring(0, 10);
+                
+                let typeStr = cols.find(c => c.toUpperCase().includes('INCOME') || c.toUpperCase().includes('EXPENSE'));
+                if(!typeStr) typeStr = 'EXPENSE';
+
+                let amountStr = "0";
+                if (cols.length >= 6) { amountStr = cols[3]; } 
+                else if (cols.length >= 2) { amountStr = cols[1]; } 
+                let amount = parseFloat(amountStr.replace(',', '.')); 
+                
+                if(!dateStr || isNaN(amount)) { failCount++; continue; }
+
+                const res = await fetch('http://127.0.0.1:8000/api/transactions/', { 
+                    method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ account: account_id, category: null, amount: amount, transaction_type: typeStr.toUpperCase().includes('INCOME') ? 'INCOME' : 'EXPENSE', date: dateStr + "T12:00:00Z", description: 'CSV İçe Aktarım' }) 
+                });
+                if(res.ok) successCount++; else failCount++;
+            }
+            if(successCount > 0) { showToast(`${successCount} işlem başarıyla yüklendi!`, "success"); loadFormOptions(); }
+            else showToast("Dosya formatı anlaşılamadı. Tarih ve Miktar alanlarını kontrol edin.", "error");
+            fileInput.value = ""; document.getElementById('file-upload-text').innerText = "📁 Tıklayıp CSV Dosyası Seçin";
+        };
+        reader.readAsText(file);
+    }
+
+    async function calculateCurrency() {
+        const amount = document.getElementById('conv-amount').value; const source = document.getElementById('conv-source').value; const target = document.getElementById('conv-target').value; const resultBox = document.getElementById('conv-result-box');
+        if (!amount || !source || !target) { showToast("Lütfen Miktar, Kaynak ve Hedef kur alanlarını doldurun.", "error"); return; }
+        if (source === target) { showToast("Lütfen birbirinden farklı iki para birimi seçin.", "error"); return; }
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/convert/?source=${source}&target=${target}&amount=${amount}`, { headers: { 'Authorization': 'Bearer ' + accessToken } });
+            if (response.ok) {
+                const data = await response.json(); const pathString = data.path ? data.path.join(' ➔ ') : `${source} ➔ ${target}`; resultBox.style.display = 'block';
+                resultBox.innerHTML = `<h3 style="margin-top:0; font-size: 22px;">📊 Hesaplama Başarılı</h3><p style="font-size: 18px; margin-bottom: 5px;">Girdiğiniz Miktar: <strong>${amount} ${source}</strong></p><p style="font-size: 22px; margin-top: 5px;">Algoritma Sonucu: <strong style="color: #28a745;">${parseFloat(data.converted_amount).toFixed(2)} ${target}</strong></p><hr style="border-color: var(--chart-border); margin: 15px 0;"><p style="margin: 0;"><span style="font-size: 14px; color: var(--text-muted); display: block; margin-bottom: 5px;">Bulunan En Karlı Rota (Dijkstra):</span><span style="background-color: var(--bg-color); padding: 8px 12px; border-radius: 5px; font-family: monospace; font-weight: bold; font-size: 16px; color: var(--text-color);">${pathString}</span></p>`;
+                showToast("Dijkstra algoritması en karlı rotayı buldu!", "success");
+            } else { showToast("Döviz kurları hesaplanırken hata oluştu.", "error"); }
+        } catch (error) { showToast("Sunucuya bağlanılamadı.", "error"); }
+    }
+
+    async function handleTransactionTypeChange() {
+        const type = document.getElementById('trans-type').value; const descInput = document.getElementById('trans-desc'); const catSelect = document.getElementById('trans-category');
+        if (type === 'INCOME') { descInput.placeholder = "Açıklama (Örn: Maaş Yattı, İkramiye)"; catSelect.innerHTML = "<option value=''>Kategori Seçilmez (Gelir)</option>"; catSelect.disabled = true; } 
+        else {
+            descInput.placeholder = "Açıklama (Örn: Fatura, Market)"; catSelect.disabled = false; const catRes = await fetch('http://127.0.0.1:8000/api/categories/', { headers: { 'Authorization': 'Bearer ' + accessToken }});
+            if(catRes.ok) { const categories = await catRes.json(); catSelect.innerHTML = "<option value=''>Kategori Seçiniz (İsteğe Bağlı)</option>"; categories.forEach(c => { catSelect.innerHTML += `<option value="${c.id}">${categoryIcons[c.name] || '📂'} ${c.name}</option>`; }); }
+        }
+    }
+
+    async function addAccount() {
+        const name = document.getElementById('acc-name').value; const currency = document.getElementById('acc-currency').value; const balance = document.getElementById('acc-balance').value || 0;
+        const res = await fetch('http://127.0.0.1:8000/api/accounts/', { method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, currency: currency, balance: balance }) });
+        if(res.ok) { showToast(`Hesap başarıyla oluşturuldu: ${name}`, "success"); document.getElementById('acc-name').value = ""; document.getElementById('acc-balance').value = ""; loadFormOptions(); } else { showToast("Hesap oluşturulamadı. Lütfen alanları kontrol edin.", "error"); }
+    }
+
+    async function addTransaction() {
+        const account_id = document.getElementById('trans-account').value; const type = document.getElementById('trans-type').value; const category_id = document.getElementById('trans-category').value; const amount = document.getElementById('trans-amount').value; const date = document.getElementById('trans-date').value; const desc = document.getElementById('trans-desc').value;
+        if(!account_id || !amount || !date) { showToast("Hesap, Miktar ve Tarih alanları zorunludur!", "error"); return; }
+        const res = await fetch('http://127.0.0.1:8000/api/transactions/', { method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ account: account_id, category: type === 'EXPENSE' ? (category_id || null) : null, amount: amount, transaction_type: type, date: date + "T12:00:00Z", description: desc }) });
+        if(res.ok) { if(type === 'INCOME') showToast("Gelir eklendi, bakiye güncellendi!", "success"); else showToast("Gider eklendi, bakiye düşürüldü!", "info"); document.getElementById('trans-amount').value = ""; document.getElementById('trans-desc').value = ""; loadFormOptions(); } else { showToast("İşlem eklenirken arka planda bir hata oluştu.", "error"); }
+    }
+
+    function saveCategoryBudget() {
+        const catName = document.getElementById('budget-set-category').value; const amount = document.getElementById('budget-set-amount').value;
+        if(!catName || !amount) { showToast("Lütfen kategori ve miktar seçin.", "error"); return; }
+        categoryBudgets[catName] = parseFloat(amount); localStorage.setItem('categoryBudgets', JSON.stringify(categoryBudgets));
+        showToast(`${catName} için ${amount} TRY hedef belirlendi!`, "success"); document.getElementById('budget-set-amount').value = ""; renderActiveBudgets();
+    }
+    function deleteCategoryBudget(catName) { delete categoryBudgets[catName]; localStorage.setItem('categoryBudgets', JSON.stringify(categoryBudgets)); showToast(`${catName} hedefi silindi.`, "info"); renderActiveBudgets(); }
+    
+    function renderActiveBudgets() {
+        const list = document.getElementById('active-budgets-list'); list.innerHTML = ""; let count = 0;
+        for (let cat in categoryBudgets) {
+            count++; let li = document.createElement('li'); li.className = 'tx-item';
+            li.innerHTML = `<div class="tx-left"><div class="tx-icon">${categoryIcons[cat] || '🎯'}</div><div class="tx-details"><span class="tx-title">${cat}</span><span class="tx-date">Aylık Limit</span></div></div><div class="tx-right" style="display:flex; align-items:center; gap:15px;"><span class="tx-amount">${categoryBudgets[cat]} TRY</span><button onclick="deleteCategoryBudget('${cat}')" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:18px; padding:0; margin:0; width:auto;" title="Sil">🗑️</button></div>`; list.appendChild(li);
+        }
+        if(count === 0) list.innerHTML = "<li style='padding: 15px; color: var(--text-muted); text-align: center;'>Henüz kayıtlı bir hedefiniz yok.</li>";
+    }
+
+    async function loadFormOptions() {
+        const accRes = await fetch('http://127.0.0.1:8000/api/accounts/', { headers: { 'Authorization': 'Bearer ' + accessToken }});
+        if(accRes.ok) {
+            const accounts = await accRes.json(); const accSelect = document.getElementById('trans-account'); accSelect.innerHTML = accounts.length > 0 ? "" : "<option value=''>Önce hesap oluşturun...</option>";
+            const filterSelect = document.getElementById('dashboard-account-filter'); const currentFilter = filterSelect.value; filterSelect.innerHTML = "<option value=''>🌍 Tüm Hesapların Özeti</option>";
+            const importSelect = document.getElementById('import-account'); if(importSelect) importSelect.innerHTML = accounts.length > 0 ? "" : "<option value=''>Veri aktarılacak hesap seçin...</option>";
+            accounts.forEach(a => { accSelect.innerHTML += `<option value="${a.id}">${a.name} (${a.currency}) - Bakiye: ${a.balance}</option>`; filterSelect.innerHTML += `<option value="${a.id}">${a.name} (${a.currency})</option>`; if(importSelect) importSelect.innerHTML += `<option value="${a.id}">${a.name} (${a.currency})</option>`; });
+            filterSelect.value = currentFilter; 
+        }
+        const catRes = await fetch('http://127.0.0.1:8000/api/categories/', { headers: { 'Authorization': 'Bearer ' + accessToken }});
+        if(catRes.ok) {
+            const categories = await catRes.json(); const budgetCatSelect = document.getElementById('budget-set-category'); if(budgetCatSelect) budgetCatSelect.innerHTML = "<option value=''>Kategori Seçin...</option>";
+            categories.forEach(c => { if(budgetCatSelect) budgetCatSelect.innerHTML += `<option value="${c.name}">${categoryIcons[c.name] || '📂'} ${c.name}</option>`; });
+        }
+        handleTransactionTypeChange();
+    }
+
+    async function loadDashboard() {
+        const selectedAccountId = document.getElementById('dashboard-account-filter').value; const timeFilter = document.getElementById('dashboard-time-filter').value; 
+        let categoryMap = {}; const catRes = await fetch('http://127.0.0.1:8000/api/categories/', { headers: { 'Authorization': 'Bearer ' + accessToken }});
+        if(catRes.ok) { const categories = await catRes.json(); categories.forEach(c => { categoryMap[c.id] = c.name; }); }
+
+        const txRes = await fetch('http://127.0.0.1:8000/api/transactions/', { headers: { 'Authorization': 'Bearer ' + accessToken } }); let txData = await txRes.json();
+        if (selectedAccountId) { txData = txData.filter(t => t.account == selectedAccountId); }
+        if (timeFilter !== 'all') { const daysToFilter = parseInt(timeFilter); const cutoffDate = new Date(); cutoffDate.setDate(cutoffDate.getDate() - daysToFilter); txData = txData.filter(t => new Date(t.date) >= cutoffDate); }
+
+        const list = document.getElementById('transaction-list'); const warningDiv = document.getElementById('budget-warning'); const progressWrap = document.getElementById('progress-wrapper'); const budgetWrapper = document.getElementById('category-budgets-wrapper');
+        const upcomingWidget = document.getElementById('upcoming-bills-widget');
+
+        warningDiv.style.display = 'none'; progressWrap.style.display = 'none'; upcomingWidget.style.display = 'none'; list.innerHTML = ""; budgetWrapper.innerHTML = "";
+        let totalIncome = 0; let totalExpense = 0;
+        
+        const today = new Date(); let upcomingHTML = "";
+        if (userBills.length > 0) {
+            upcomingHTML += `<h3 style="margin-bottom: 10px;">📅 Bekleyen Faturalar</h3>`;
+            userBills.forEach((bill) => {
+                const timeDiff = new Date(bill.date).getTime() - today.getTime(); const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                if(daysDiff >= 0 && daysDiff <= 3) { upcomingHTML += `<div style="background-color: #f8d7da; color: #721c24; padding: 10px 15px; border-radius: 5px; margin-bottom: 5px; border-left: 4px solid #dc3545;"><strong>⏳ Yaklaşan:</strong> ${bill.name} (${bill.amount} TRY) - <strong>Son ${daysDiff} gün!</strong></div>`; } 
+                else if (daysDiff < 0) { upcomingHTML += `<div style="background-color: #f8d7da; color: #721c24; padding: 10px 15px; border-radius: 5px; margin-bottom: 5px; border-left: 4px solid #dc3545;"><strong>🚨 Gecikmiş:</strong> ${bill.name} (${bill.amount} TRY) - <strong>${Math.abs(daysDiff)} gün gecikti!</strong></div>`; } 
+                else { upcomingHTML += `<div style="background-color: var(--stat-bg); color: var(--text-color); padding: 10px 15px; border-radius: 5px; margin-bottom: 5px; border-left: 4px solid var(--accent-color);"><strong>🗓️ Kayıtlı:</strong> ${bill.name} (${bill.amount} TRY) - <strong>${daysDiff} gün var</strong></div>`; }
+            });
+            upcomingWidget.style.display = 'block'; upcomingWidget.innerHTML = upcomingHTML;
+        }
+
+        if(txData.length === 0) {
+            list.innerHTML = "<li style='padding: 15px; text-align: center; color: var(--text-muted);'>Seçili dönem/hesap için henüz işlem yok.</li>";
+            document.getElementById('forecast-amount').innerText = "Veri Yok"; document.getElementById('stat-income').innerText = "0 TRY"; document.getElementById('stat-expense').innerText = "0 TRY";
+            budgetWrapper.innerHTML = "<p style='color:var(--text-muted); width:100%; font-size:14px;'>Harcanan veri bulunamadı.</p>";
+            if(myLineChart) { myLineChart.destroy(); } if(myPieChart) { myPieChart.destroy(); }
+            fetch('http://127.0.0.1:8000/api/accounts/', { headers: { 'Authorization': 'Bearer ' + accessToken }}).then(res => res.json()).then(accounts => {
+                let totalBal = selectedAccountId ? parseFloat(accounts.find(a => a.id == selectedAccountId)?.balance || 0) : accounts.reduce((s, a) => s + parseFloat(a.balance || 0), 0);
+                document.getElementById('current-balance').innerText = `${totalBal} TRY`;
+            }); return;
+        }
+
+        txData.slice(0, 10).forEach(t => {
+            let catName = t.category ? categoryMap[t.category] : ''; let isIncome = t.transaction_type === 'INCOME';
+            if(isIncome) totalIncome += parseFloat(t.amount); else totalExpense += parseFloat(t.amount);
+            let icon = isIncome ? '📈' : (categoryIcons[catName] || '💸'); let desc = t.description || (isIncome ? 'Gelir İşlemi' : 'Gider İşlemi');
+            let dateStr = new Date(t.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
+            let sign = isIncome ? '+' : '-'; let amountClass = isIncome ? 'income' : 'expense';
+            let li = document.createElement('li'); li.className = 'tx-item';
+            li.innerHTML = `<div class="tx-left"><div class="tx-icon">${icon}</div><div class="tx-details"><span class="tx-title">${desc} ${catName ? `<span style="font-size:12px; font-weight:normal; color:var(--text-muted);">(${catName})</span>` : ''}</span><span class="tx-date">${dateStr}</span></div></div><div class="tx-right"><span class="tx-amount ${amountClass}">${sign} ${t.amount} TRY</span></div>`; list.appendChild(li);
+        });
+
+        document.getElementById('stat-income').innerText = `${totalIncome} TRY`; document.getElementById('stat-expense').innerText = `${totalExpense} TRY`;
+
+        let totalBalance = 0;
+        const accRes = await fetch('http://127.0.0.1:8000/api/accounts/', { headers: { 'Authorization': 'Bearer ' + accessToken }});
+        if(accRes.ok) {
+            const accounts = await accRes.json();
+            if (selectedAccountId) { const acc = accounts.find(a => a.id == selectedAccountId); totalBalance = acc ? parseFloat(acc.balance) : 0; } 
+            else { totalBalance = accounts.reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0); }
+        }
+        document.getElementById('current-balance').innerText = `${totalBalance} TRY`;
+
+        let expenseData = txData.filter(t => t.transaction_type === 'EXPENSE');
+        let categoryTotals = {}; expenseData.forEach(t => { let catName = t.category ? categoryMap[t.category] : 'Diğer (Kategorisiz)'; categoryTotals[catName] = (categoryTotals[catName] || 0) + parseFloat(t.amount); });
+        if (Object.keys(categoryTotals).length > 0) { drawPieChart(Object.keys(categoryTotals), Object.values(categoryTotals)); } else { if(myPieChart) myPieChart.destroy(); }
+
+        let hasBudgets = false;
+        for (let cat in categoryBudgets) {
+            hasBudgets = true; let limit = parseFloat(categoryBudgets[cat]); let spent = categoryTotals[cat] || 0; let percentage = (spent / limit) * 100;
+            let barColor = percentage < 50 ? '#28a745' : (percentage < 80 ? '#ffc107' : '#dc3545'); let barWidth = percentage > 100 ? 100 : percentage;
+            let card = document.createElement('div'); card.className = 'stat-box'; card.style.minWidth = '220px'; card.style.textAlign = 'left'; card.style.padding = '12px';
+            card.innerHTML = `<div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;"><strong style="font-size: 14px;">${categoryIcons[cat] || '🎯'} ${cat}</strong><span style="font-size:14px; color:${barColor}; font-weight:bold;">%${percentage.toFixed(0)}</span></div><div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Harcanan: <strong>${spent.toFixed(0)}</strong> / ${limit} TRY</div><div class="progress-container" style="height:6px;"><div class="progress-bar" style="width:${barWidth}%; background-color:${barColor};"></div></div>`;
+            budgetWrapper.appendChild(card);
+        }
+        if(!hasBudgets) { budgetWrapper.innerHTML = "<p style='color:var(--text-muted); font-size:14px; margin-left:5px;'>Henüz özel bir kategori hedefi belirlemediniz. Hedefler sekmesinden ekleyebilirsiniz.</p>"; }
+
+        if(expenseData.length >= 2) {
+            expenseData.sort((a, b) => new Date(a.date) - new Date(b.date)); let dates = expenseData.map(t => t.date.split('T')[0]); let amounts = expenseData.map(t => parseFloat(t.amount));
+            let target = new Date(); target.setDate(target.getDate() + 30); let targetStr = target.toISOString().split('T')[0];
+            let forecastUrl = `http://127.0.0.1:8000/api/forecast/?target_date=${targetStr}`; if (selectedAccountId) forecastUrl += `&account_id=${selectedAccountId}`;
+
+            try {
+                const forecastRes = await fetch(forecastUrl, { headers: { 'Authorization': 'Bearer ' + accessToken } });
+                if(forecastRes.ok) {
+                    const forecastData = await forecastRes.json(); const predicted = parseFloat(forecastData.predicted_amount); document.getElementById('forecast-amount').innerText = `${predicted} TRY`;
+                    progressWrap.style.display = 'block'; let percentage = 0;
+                    if (totalBalance > 0) { percentage = (predicted / totalBalance) * 100; } else if (predicted > 0) { percentage = 100; }
+                    let barWidth = percentage > 100 ? 100 : percentage; const progressBar = document.getElementById('budget-progress-bar'); const progressText = document.getElementById('progress-text');
+                    progressBar.style.width = barWidth + '%'; progressText.innerText = '%' + percentage.toFixed(1);
+                    if (percentage < 50) { progressBar.style.backgroundColor = '#28a745'; } else if (percentage < 80) { progressBar.style.backgroundColor = '#ffc107'; } else { progressBar.style.backgroundColor = '#dc3545'; }
+
+                    warningDiv.style.display = 'block';
+                    if (totalBalance <= 0) { warningDiv.className = 'alert-box danger'; warningDiv.innerHTML = `⚠️ <strong>Uyarı:</strong> Bakiye kritik seviyede. İflas riskine karşı sisteme "Gelir" eklemelisiniz.`; } 
+                    else if (predicted > totalBalance) { warningDiv.className = 'alert-box danger'; warningDiv.innerHTML = `🚨 <strong>Kritik Uyarı:</strong> 30 günlük tahmini harcamanız (${predicted} TRY), güncel bakiyenizi aşıyor!`; } 
+                    else { warningDiv.className = 'alert-box success'; warningDiv.innerHTML = `✅ <strong>Bütçe Güvende:</strong> Tahmini harcamalarınız bakiyenizin altında. Harika gidiyorsunuz!`; }
+
+                    let predictedPointArray = Array(amounts.length - 1).fill(null);
+                    predictedPointArray.push(amounts[amounts.length - 1]); predictedPointArray.push(predicted);
+                    dates.push(forecastData.target_date); amounts.push(null);
+                    drawLineChart(dates, amounts, predictedPointArray);
+                }
+            } catch(e) { console.log(e); }
+        } else { document.getElementById('forecast-amount').innerText = "Tahmin için yetersiz veri"; if(myLineChart) { myLineChart.destroy(); } }
+    }
+
+    function drawLineChart(dates, amounts, predictedPointArray) {
+        const ctx = document.getElementById('expenseChart').getContext('2d');
+        if (myLineChart) myLineChart.destroy();
+        const isDark = document.body.classList.contains('dark-mode'); const gridColor = isDark ? '#444' : '#e0e0e0';
+        let currentAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#007bff'; const rgb = hexToRgb(currentAccent);
+
+        myLineChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: dates, datasets: [ { label: 'Giderler', data: amounts, borderColor: currentAccent, backgroundColor: isDark ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)` : `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`, borderWidth: 3, fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: currentAccent }, { label: 'Tahmini Rota', data: predictedPointArray, borderColor: '#dc3545', borderDash: [5,5], borderWidth: 3, fill: false, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#dc3545' } ] },
+            options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { tooltip: { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)', titleColor: isDark ? '#fff' : '#000', bodyColor: isDark ? '#fff' : '#000', borderColor: '#ccc', borderWidth: 1, padding: 10, displayColors: true } }, scales: { x: { grid: { color: gridColor, drawBorder: false } }, y: { grid: { color: gridColor, drawBorder: false }, beginAtZero: true } } }
+        });
+    }
+
+    function drawPieChart(labels, data) {
+        const ctx = document.getElementById('categoryPieChart').getContext('2d');
+        if (myPieChart) myPieChart.destroy();
+        const colors = ['#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6f42c1', '#e83e8c', '#fd7e14'];
+        const isDark = document.body.classList.contains('dark-mode');
+        myPieChart = new Chart(ctx, {
+            type: 'doughnut', data: { labels: labels, datasets: [{ data: data, backgroundColor: colors.slice(0, labels.length), borderWidth: 2, borderColor: isDark ? '#1e1e1e' : '#ffffff' }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { title: { display: true, text: 'Kategori Dağılımı', font: { size: 16 } }, legend: { position: 'bottom', labels: { boxWidth: 12 } }, tooltip: { callbacks: { label: function(context) { return ' ' + context.label + ': ' + context.raw + ' TRY'; } } } } }
+        });
+    }
+
+    async function downloadCSV() {
+        const res = await fetch('http://127.0.0.1:8000/api/export/csv/', { headers: { 'Authorization': 'Bearer ' + accessToken } });
+        if (res.ok) { const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'harcamalarim.csv'; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url); showToast("Verileriniz CSV formatında indirildi.", "success"); } else { showToast("CSV indirilirken hata oluştu.", "error"); }
+    }
+</script>
+</body>
+</html>
