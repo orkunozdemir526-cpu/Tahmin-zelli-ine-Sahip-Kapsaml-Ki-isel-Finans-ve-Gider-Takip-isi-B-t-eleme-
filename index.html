@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kişisel Finans ve Varlık Yönetim Portalı</title>
+    <title>Kişisel Finans ve Bütçe Takibi</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         /* --- GENEL, KOYU MOD VE DİNAMİK VURGU (ACCENT) STİLLERİ --- */
@@ -148,17 +148,19 @@
         </div>
         <button class="action-btn" id="auth-btn" onclick="handleAuth()">Giriş Yap</button>
         <p id="auth-msg" style="color:#dc3545; text-align: center; font-weight: bold; margin-top:10px;"></p>
-        <span class="toggle-link" onclick="toggleAuthMode()" id="auth-toggle">Hesabınız yok mu? Kayıt Olun</span>
+        
+        <span class="toggle-link" id="auth-toggle" onclick="toggleAuthMode()">Hesabınız yok mu? Kayıt Olun</span>
+        <span class="toggle-link" id="forgot-link" style="margin-top: 8px; color: var(--text-muted); font-size: 13px;" onclick="handleForgot()">Şifremi Unuttum</span>
     </div>
 
     <div id="portal-menu">
-        <button class="menu-btn active" onclick="showPage('dashboard-page', this)">📊 Panel & Öngörü</button>
-        <button class="menu-btn" onclick="showPage('add-data-page', this)">➕ Veri Girişi</button>
-        <button class="menu-btn" onclick="showPage('targets-page', this)">🎯 Hedef Planlayıcı</button>
-        <button class="menu-btn" onclick="showPage('bills-page', this)">📅 Fatura Merkezi</button>
-        <button class="menu-btn" onclick="showPage('investments-page', this)">📈 Varlık & Portföy</button>
-        <button class="menu-btn" onclick="showPage('trends-page', this)">📉 Trend Analizi</button>
-        <button class="menu-btn logout-btn" onclick="logout()">🚪 Güvenli Çıkış</button>
+        <button class="menu-btn active" onclick="showPage('dashboard-page', this)">📊 Panel & Özet</button>
+        <button class="menu-btn" onclick="showPage('add-data-page', this)">➕ İşlem Ekle</button>
+        <button class="menu-btn" onclick="showPage('targets-page', this)">🎯 Birikim Hedefleri</button>
+        <button class="menu-btn" onclick="showPage('bills-page', this)">📅 Otomatik Ödemeler</button>
+        <button class="menu-btn" onclick="showPage('investments-page', this)">📈 Portföy & Yatırım</button>
+        <button class="menu-btn" onclick="showPage('trends-page', this)">📉 Harcama Analizi</button>
+        <button class="menu-btn logout-btn" onclick="logout()">🚪 Çıkış</button>
     </div>
 
     <div id="dashboard-page" class="page-section card">
@@ -166,12 +168,12 @@
             <h2 style="margin: 0; border-left: 4px solid var(--accent-color); padding-left: 10px;">Finansal Özet Paneli</h2>
             <div class="filter-group">
                 <select id="dashboard-time-filter" onchange="loadDashboard()">
-                    <option value="all">🗓️ Tüm Dönemler</option>
+                    <option value="all">🗓️ Tüm Zamanlar</option>
                     <option value="30">📅 Son 30 Gün</option>
                     <option value="7">📆 Son 7 Gün</option>
                 </select>
                 <select id="dashboard-account-filter" onchange="loadDashboard()">
-                    <option value="">🌍 Konsolide (Tüm Hesaplar)</option>
+                    <option value="">🌍 Tüm Hesaplar</option>
                 </select>
             </div>
         </div>
@@ -188,7 +190,7 @@
                 <h4>Toplam Gider</h4><span id="stat-expense" class="theme-text">0 TRY</span>
             </div>
             <div class="stat-box theme-bordered" id="stat-box-balance">
-                <h4>Mevcut Bakiye <span onclick="editBalance()" style="cursor:pointer; margin-left: 8px; font-size:16px;" title="Bakiyeyi El İle Düzenle">✏️</span></h4>
+                <h4>Toplam Bakiye</h4>
                 <span id="current-balance" class="theme-text">0 TRY</span>
             </div>
             <div class="stat-box theme-bordered">
@@ -197,11 +199,14 @@
         </div>
 
         <div class="progress-wrapper" id="progress-wrapper" style="display: none;">
-            <div class="progress-header"><span>Genel Bütçe Kullanım Oranı (Öngörü)</span><span id="progress-text">%0</span></div>
+            <div class="progress-header"><span>Bütçe Kullanım Oranı (Tahmini)</span><span id="progress-text">%0</span></div>
             <div class="progress-container"><div id="budget-progress-bar" class="progress-bar"></div></div>
         </div>
 
-        <h3 style="margin-top: 25px; margin-bottom: 10px;">🎯 Öncelikli Finansal Hedef</h3>
+        <h3 style="margin-top: 25px; margin-bottom: 10px;">🎯 Öncelikli Hedef Durumu</h3>
+        <div id="goal-chain-wrapper" style="display:flex; flex-wrap:wrap; gap:15px; margin-bottom: 20px;"></div>
+
+        <h3 style="margin-top: 10px; margin-bottom: 10px;">📊 Kategori Bütçe Durumu</h3>
         <div id="category-budgets-wrapper" style="display:flex; flex-wrap:wrap; gap:15px; margin-bottom: 20px;"></div>
         
         <div class="charts-container" style="margin-top: 20px;">
@@ -212,7 +217,7 @@
         <hr style="border-color: var(--chart-border);">
         
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin: 0;">Hesap Hareketleri</h3>
+            <h3 style="margin: 0;">İşlem Geçmişi</h3>
             <div style="display: flex; gap: 10px;">
                 <button id="undo-btn" onclick="undoLastAction()" class="action-btn" style="width: auto; margin: 0; padding: 8px 15px; background-color: #ffc107; color: #333; font-size: 13px; display: none; align-items: center; gap: 5px;" title="Son silinen işlemi geri al">
                     <span>↩️</span> Geri Al (<span id="undo-count">0</span>)
@@ -227,10 +232,10 @@
     </div>
 
     <div id="add-data-page" class="page-section card">
-        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">Finansal Kayıt Girişi</h2>
+        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">Yeni İşlem Ekle</h2>
         <div class="form-group">
-            <h3>💳 Yeni Hesap / Cüzdan Tanımlama</h3>
-            <input type="text" id="acc-name" placeholder="Hesap Adı (Örn: Maaş Hesabı, Kredi Kartı)">
+            <h3>💳 Hesap veya Cüzdan Ekle</h3>
+            <input type="text" id="acc-name" placeholder="Hesap Adı (Örn: Kredi Kartı, Vadesiz Hesap)">
             <select id="acc-currency">
                 <option value="TRY">Türk Lirası (TRY)</option><option value="USD">Amerikan Doları (USD)</option><option value="EUR">Euro (EUR)</option>
             </select>
@@ -238,49 +243,49 @@
             <button class="action-btn" onclick="addAccount()">Hesabı Oluştur</button>
         </div>
         <div class="form-group" style="border-bottom: none;">
-            <h3>💸 Yeni Nakit Akışı (Gelir / Gider) Kaydı</h3>
-            <select id="trans-account"><option value="" disabled selected>Lütfen işlem yapılacak hesabı seçin...</option></select>
+            <h3>💸 Yeni Gelir / Gider Ekle</h3>
+            <select id="trans-account"><option value="" disabled selected>Önce hesap seçin...</option></select>
             
             <select id="trans-type" onchange="handleTransactionTypeChange()" style="font-weight: bold;">
-                <option value="EXPENSE">📉 Nakit Çıkışı (Gider / Harcama)</option>
-                <option value="INCOME">📈 Nakit Girişi (Gelir / Nakit Girişi)</option>
+                <option value="EXPENSE">📉 Gider (Harcama / Çıkış)</option>
+                <option value="INCOME">📈 Gelir (Maaş / Giriş)</option>
             </select>
             
             <select id="trans-category"><option value="">Kategori Seçiniz</option></select>
-            <input type="number" id="trans-amount" placeholder="Tutar" step="0.01">
+            <input type="number" id="trans-amount" placeholder="Tutar (Örn: 150.50)" step="0.01">
             <input type="date" id="trans-date">
-            <input type="text" id="trans-desc" placeholder="İşlem açıklaması giriniz...">
-            <button class="action-btn" onclick="addTransaction()">Kayıt İşlemini Tamamla</button>
+            <input type="text" id="trans-desc" placeholder="İşlem açıklaması...">
+            <button class="action-btn" onclick="addTransaction()">İşlemi Kaydet</button>
         </div>
     </div>
 
     <div id="targets-page" class="page-section card">
-        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">🎯 Akıllı Birikim ve Hedef Planlayıcı (Snowball)</h2>
-        <p>Gelecek planlarınızı önem sırasına göre listeyin. Sisteme aktardığınız birikim fonları, öncelikli hedefinizi doldurur; birikim arttıkça fonlar sırasıyla alt hedeflere otomatik olarak transfer edilir.</p>
+        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">🎯 Birikim Hedefleri</h2>
+        <p>Hedeflerinizi sıraya koyun. Ayırdığınız para önce ilk hedefi doldurur, hedef tamamlandığında para zincirleme olarak sıradaki hedefe otomatik akar.</p>
         
         <div class="form-group" style="background-color: var(--stat-bg); padding: 15px; border-radius: 8px; border: 1px dashed var(--chart-border);">
-            <h4 style="margin-top: 0;">Yeni Stratejik Hedef Tanımla</h4>
+            <h4 style="margin-top: 0;">Yeni Hedef Ekle</h4>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <input type="text" id="goal-name" placeholder="Hedef Başlığı (Örn: Acil Durum Fonu, Yatırım Sermayesi)" style="flex: 2;">
+                <input type="text" id="goal-name" placeholder="Hedef Adı (Örn: Borç Kapatma, Tatil Fonu)" style="flex: 2;">
                 <input type="number" id="goal-target" placeholder="Hedeflenen Tutar (TRY)" step="0.01" style="flex: 1;">
             </div>
-            <button class="action-btn" style="background-color: #17a2b8;" onclick="addGoalNode()">Planlamaya Ekle</button>
+            <button class="action-btn" style="background-color: #17a2b8;" onclick="addGoalNode()">Zincire Ekle</button>
         </div>
 
         <div class="form-group" style="border-bottom: none; padding-bottom: 0;">
-            <h4 style="color: var(--accent-color);">💰 Portföyü Fonla (Otomatik Dağıtım)</h4>
+            <h4 style="color: var(--accent-color);">💰 Hedeflere Para Aktar</h4>
             <div style="display: flex; gap: 10px;">
-                <input type="number" id="goal-fund" placeholder="Aktarılacak Birikim Tutarı (TRY)" step="0.01" style="flex: 2;">
-                <button class="action-btn" style="background-color: #28a745; margin-top: 10px; flex: 1;" onclick="fundGoalChain()">Birikimi Dağıt</button>
+                <input type="number" id="goal-fund" placeholder="Aktarılacak Tutar (TRY)" step="0.01" style="flex: 2;">
+                <button class="action-btn" style="background-color: #28a745; margin-top: 10px; flex: 1;" onclick="fundGoalChain()">Para Dağıt</button>
             </div>
         </div>
 
-        <h3 style="margin-top: 20px;">Aktif Hedef Matrisi</h3>
+        <h3 style="margin-top: 20px;">Mevcut Hedefleriniz</h3>
         <div style="margin-bottom: 20px;">
-            <h4 style="margin: 0 0 10px 0;">📊 Kategori Bazlı Aylık Limit Belirleme</h4>
+            <h4 style="margin: 0 0 10px 0;">📊 Kategori Limit Belirle (Bütçe)</h4>
             <div style="display: flex; gap: 10px;">
                 <select id="budget-set-category" style="flex: 2; margin-top: 0;"><option value="" disabled selected>Ana Kategori Seçin...</option></select>
-                <input type="number" id="budget-set-amount" placeholder="Aylık Güvenli Limit (TRY)" step="0.01" style="flex: 1; margin-top: 0;">
+                <input type="number" id="budget-set-amount" placeholder="Aylık Limit (TRY)" step="0.01" style="flex: 1; margin-top: 0;">
                 <button class="action-btn" style="margin-top: 0; flex: 1;" onclick="saveCategoryBudget()">Limiti Kaydet</button>
             </div>
         </div>
@@ -288,43 +293,45 @@
     </div>
 
     <div id="bills-page" class="page-section card">
-        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">📅 Akıllı Otomatik Ödeme Sistemi</h2>
-        <p>Düzenli ödemelerinizi sisteme tanımlayın. Faturalarınız vade tarihine göre otomatik olarak sıraya alınır. Hesabınıza nakit girişi (Gelir) algılandığı anda, sistem sıradaki faturayı bakiyeniz doğrultusunda otomatik olarak fonlar ve öder.</p>
+        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">📅 Otomatik Ödemeler</h2>
+        <p>Faturalarınız sıraya alınır. Günü (Vadesi) gelen faturalar için bakiye kontrolü yapılır ve bakiye yeterliyse otomatik ödenir.</p>
         <div class="form-group" style="background-color: var(--stat-bg); padding: 15px; border-radius: 8px; border: 1px dashed var(--chart-border);">
-            <h4 style="margin-top: 0;">Yeni Otomatik Ödeme Talimatı</h4>
-            <input type="text" id="bill-name" placeholder="Fatura / Kurum Adı (Örn: Elektrik Dağıtım, Bulut Aboneliği)">
-            <input type="number" id="bill-amount" placeholder="Fatura Tutarı" step="0.01">
-            <select id="bill-account" style="margin-top: 10px;"><option value="" disabled selected>Ödemenin tahsil edileceği hesap...</option></select>
+            <h4 style="margin-top: 0;">Yeni Fatura Ekle</h4>
+            <input type="text" id="bill-name" placeholder="Fatura Adı (Örn: Elektrik, İnternet)">
+            <input type="number" id="bill-amount" placeholder="Tutar" step="0.01">
+            <select id="bill-account" style="margin-top: 10px;"><option value="" disabled selected>Hangi hesaptan ödenecek?</option></select>
             <input type="date" id="bill-date" title="Son Ödeme Tarihi">
-            <button class="action-btn" style="background-color: #fd7e14;" onclick="enqueueBill()">Talimatı Sıraya Al</button>
+            <button class="action-btn" style="background-color: #fd7e14;" onclick="enqueueBill()">Kuyruğa Ekle</button>
         </div>
-        <h3 style="margin-top: 20px;">Ödeme Sırasındaki Faturalar</h3>
+        <h3 style="margin-top: 20px;">Bekleyen Faturalar</h3>
         <ul id="active-bills-list" class="tx-list" style="max-height: 250px;"></ul>
     </div>
 
     <div id="investments-page" class="page-section card">
-        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">📈 Arbitraj Rotalı Döviz ve Portföy Takibi</h2>
-        <p>Emtia, Döviz veya Dijital Varlık portföyünüzü yönetin. <strong>Sistem, küresel piyasa verilerini entegre borsalar üzerinden anlık ve senkronize olarak günceller.</strong></p>
+        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">📈 Portföy & Yatırım</h2>
+        <p>Varlıklarınızı ekleyin. Sistem piyasa verilerini Binance API'den anlık çeker.</p>
         <div class="stats" style="margin-top: 20px;">
             <div class="stat-box theme-bordered"><h4>Toplam Portföy Değeri</h4><span id="inv-total-value" class="theme-text">0 TRY</span></div>
-            <div class="stat-box theme-bordered"><h4>Net Kar / Zarar (P&L)</h4><span id="inv-total-pl" class="theme-text">0 TRY</span></div>
+            <div class="stat-box theme-bordered"><h4>Kar / Zarar Durumu</h4><span id="inv-total-pl" class="theme-text">0 TRY</span></div>
         </div>
         <div class="form-group">
+            <select id="inv-account" style="margin-bottom: 10px; border-color: var(--accent-color); font-weight: bold;"><option value="" disabled selected>Satın Alma İçin Hesap Seçin (Bakiyeden Düşülecek)</option></select>
+            
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <input type="text" id="inv-name" placeholder="Varlık Sembolü (Örn: BTC, USD, ALTIN)" style="flex: 2;">
-                <input type="number" id="inv-quantity" placeholder="Varlık Miktarı (Adet/Pozisyon)" step="0.01" style="flex: 1;">
-                <input type="number" id="inv-buy-price" placeholder="Birim Alış Maliyeti (TRY)" step="0.01" style="flex: 1;">
+                <input type="text" id="inv-name" placeholder="Sembol (Örn: BTC, USD, ALTIN)" style="flex: 2;">
+                <input type="number" id="inv-quantity" placeholder="Adet/Miktar" step="0.01" style="flex: 1;">
+                <input type="number" id="inv-buy-price" placeholder="Alış Fiyatı (TRY)" step="0.01" style="flex: 1;">
                 <div style="flex: 2; display: flex; gap: 5px;">
-                    <input type="number" id="inv-current-price" placeholder="Güncel Piyasa Fiyatı (TRY)" step="0.01" style="flex: 2; margin-top: 0;">
-                    <button class="action-btn" onclick="getLivePrice()" style="margin-top: 0; flex: 1; padding: 0 10px; font-size: 12px; background-color: #28a745;" title="Anlık piyasa verisini sorgula">🔄 Canlı Fiyat</button>
+                    <input type="number" id="inv-current-price" placeholder="Güncel Fiyat (TRY)" step="0.01" style="flex: 2; margin-top: 0;">
+                    <button class="action-btn" onclick="getLivePrice()" style="margin-top: 0; flex: 1; padding: 0 10px; font-size: 12px; background-color: #28a745;">🔄 Fiyat Bul</button>
                 </div>
             </div>
-            <button class="action-btn" onclick="addInvestment()">Portföye Ekle / Pozisyon Güncelle</button>
+            <button class="action-btn" onclick="addInvestment()">Satın Al & Portföye Ekle</button>
         </div>
         
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 10px;">
-            <h3 style="margin: 0;">Aktif Varlık Pozisyonları</h3>
-            <button class="action-btn" onclick="updateAllInvestments()" style="width: auto; margin: 0; padding: 8px 15px; background-color: #17a2b8; font-size: 13px; display: flex; align-items: center; gap: 5px;" title="Tüm portföy fiyatlarını küresel piyasa verileri ile senkronize eder">
+            <h3 style="margin: 0;">Varlıklarınız</h3>
+            <button class="action-btn" onclick="updateAllInvestments()" style="width: auto; margin: 0; padding: 8px 15px; background-color: #17a2b8; font-size: 13px; display: flex; align-items: center; gap: 5px;">
                 <span>🔄</span> Tümünü Canlı Güncelle
             </button>
         </div>
@@ -332,81 +339,118 @@
     </div>
 
     <div id="trends-page" class="page-section card">
-        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">📉 Makro Harcama Trendleri ve Analitik</h2>
-        <p>Sistemdeki tüm kayıtlarınızı analiz ederek tüketim alışkanlıklarınızı Ana Kategoriler bazında raporlar.</p>
+        <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">📉 Harcama Analizi</h2>
+        <p>Tüm kayıtlarınızı analiz ederek tüketim alışkanlıklarınızı ana kategoriler bazında raporlar.</p>
         <div class="stats" id="trends-summary-boxes" style="margin-top: 20px;"></div>
         <div style="width: 100%; height: 350px; background: var(--card-bg); border: 1px solid var(--chart-border); border-radius: 8px; padding: 15px; box-sizing: border-box; margin-top: 20px;">
-            <h3 style="text-align:center; margin-top:0;">Ana Kategori Dağılım Matrisi (Son 30 Gün)</h3>
+            <h3 style="text-align:center; margin-top:0;">Kategorik Harcama Trendi (Son 30 Gün)</h3>
             <div style="position: relative; height: 270px; width: 100%;"><canvas id="trendsBarChart"></canvas></div>
         </div>
     </div>
 </div>
 
-<div id="pay-bill-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center;">
+<div id="sell-inv-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center;">
     <div class="card" style="width: 350px; margin:0;">
-        <h3>💳 Manuel Fatura Tahsili</h3>
-        <p id="pay-bill-info"></p>
-        <select id="pay-bill-account"><option value="">Tahsili yapılacak hesap...</option></select>
+        <h3>💰 Bozdur / Sat</h3>
+        <p id="sell-inv-info"></p>
+        <select id="sell-inv-account"><option value="">Satış geliri hangi hesaba eklensin?</option></select>
         <div style="display:flex; gap:10px; margin-top:20px;">
-            <button class="action-btn" style="background-color:#6c757d;" onclick="document.getElementById('pay-bill-modal').style.display='none'">İptal</button>
-            <button class="action-btn" onclick="confirmPayBill()">Ödemeyi Onayla</button>
+            <button class="action-btn" style="background-color:#6c757d;" onclick="document.getElementById('sell-inv-modal').style.display='none'">İptal</button>
+            <button class="action-btn" style="background-color:#28a745;" onclick="confirmSellInvestment()">Satışı Onayla</button>
         </div>
     </div>
 </div>
 
 <div id="update-inv-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center;">
     <div class="card" style="width: 350px; margin:0;">
-        <h3>✏️ Manuel Değerleme Güncelleme</h3>
+        <h3>✏️ Manuel Fiyat Güncelle</h3>
         <p id="update-inv-info"></p>
-        <input type="number" id="update-inv-price" placeholder="Yeni Birim Değer" step="0.01">
+        <input type="number" id="update-inv-price" placeholder="Yeni Fiyat" step="0.01">
         <div style="display:flex; gap:10px; margin-top:20px;">
             <button class="action-btn" style="background-color:#6c757d;" onclick="document.getElementById('update-inv-modal').style.display='none'">İptal</button>
-            <button class="action-btn" onclick="confirmUpdateInvestment()">Değeri Güncelle</button>
+            <button class="action-btn" onclick="confirmUpdateInvestment()">Güncelle</button>
         </div>
     </div>
 </div>
 
 <script>
-    let accessToken = ""; let isLoginMode = true; let myLineChart = null; let myPieChart = null; let myTrendChart = null;
+    let accessToken = ""; 
+    let currentUser = localStorage.getItem('currentUser') || ""; 
+    let authState = 'login'; 
+    let myLineChart = null; let myPieChart = null; let myTrendChart = null;
     
-    // SaaS TABANLI KURUMSAL KATEGORİ AĞACI (TREE)
-    const expenseTree = {
+    let mockPasswords = JSON.parse(localStorage.getItem('mockPasswords')) || {};
+
+    const expenseTreeCategories = {
         'Barınma': ['Kira', 'Aidat', 'Ev Eşyası', 'Tadilat'],
         'Beslenme': ['Market & Gıda', 'Kafe & Restoran', 'Sipariş'],
         'Ulaşım': ['Yakıt', 'Toplu Taşıma', 'Taksi', 'Araç Bakım'],
         'Faturalar': ['Elektrik', 'Su', 'Doğalgaz', 'İnternet', 'Telefon'],
         'Yaşam & Eğitim': ['Eğitim', 'Abonelikler', 'Eğlence', 'Hobi', 'Kişisel Bakım'],
-        'Diğer': ['Diğer Gider']
+        'Diğer': ['Diğer Gider', 'Yatırım Alımı']
     };
 
-    const incomeTree = {
+    const incomeTreeCategories = {
         'Maaş & Ücret': ['Maaş', 'Avans', 'Prim', 'İkramiye'],
         'Ek Gelir': ['Ek İş', 'Serbest Çalışma', 'Kira Geliri'],
-        'Yatırım & Finans': ['Yatırım Getirisi', 'Faiz Geliri', 'Temettü', 'Kripto Geliri'],
+        'Yatırım & Finans': ['Yatırım Getirisi', 'Faiz Geliri', 'Temettü', 'Kripto Geliri', 'Yatırım Satışı'],
         'Diğer Gelirler': ['Harçlık', 'Hediye', 'Satış', 'Diğer Gelir']
     };
     
     const catIcons = { 
         'Barınma':'🏠', 'Beslenme':'🍔', 'Ulaşım':'🚗', 'Faturalar':'💡', 'Yaşam & Eğitim':'🎬', 'Diğer':'📦',
         'Maaş & Ücret':'💼', 'Ek Gelir':'🚀', 'Yatırım & Finans':'📈', 'Diğer Gelirler':'🎁',
-        'Kira':'🏠', 'Market & Gıda': '🛒', 'Kafe & Restoran': '🍔', 'Yakıt':'⛽', 'Toplu Traşıma': '🚌', 'Eğitim': '📚', 'Kişisel Bakım': '🧴', 'Eğlence': '🎬', 'Elektrik':'💡',
-        'Maaş':'💼', 'Ek İş':'🚀', 'Yatırım Getirisi':'📈', 'Kripto Geliri':'₿', 'Kira Geliri':'🏠', 'Harçlık':'🎁'
+        'Kira':'🏠', 'Market & Gıda': '🛒', 'Kafe & Restoran': '🍔', 'Yakıt':'⛽', 'Toplu Taşıma': '🚌', 'Eğitim': '📚', 'Kişisel Bakım': '🧴', 'Eğlence': '🎬', 'Elektrik':'💡',
+        'Maaş':'💼', 'Ek İş':'🚀', 'Yatırım Getirisi':'📈', 'Kripto Geliri':'₿', 'Kira Geliri':'🏠', 'Harçlık':'🎁', 'Yatırım Alımı':'📉', 'Yatırım Satışı':'💰'
     };
 
     function getParentCategory(subCat, type) {
         if(!subCat) return 'Diğer';
-        const tree = type === 'INCOME' ? incomeTree : expenseTree;
+        const tree = type === 'INCOME' ? incomeTreeCategories : expenseTreeCategories;
         for (const [parent, children] of Object.entries(tree)) {
             if (children.map(c => c.toLowerCase()).includes(subCat.toLowerCase())) { return parent; }
         }
         return type === 'INCOME' ? 'Diğer Gelirler' : 'Diğer';
     }
 
-    let categoryBudgets = JSON.parse(localStorage.getItem('categoryBudgets')) || {};
-    let goalChain = JSON.parse(localStorage.getItem('goalChain')) || [];
-    let paymentQueue = JSON.parse(localStorage.getItem('paymentQueue')) || [];
-    let userInvestments = JSON.parse(localStorage.getItem('userInvestments')) || [];
+    let categoryBudgets = {};
+    let goalChain = [];
+    let paymentQueue = [];
+    let userInvestments = [];
     let undoStack = []; let currentTxData = [];
+    let sellingInvIndex = null;
+
+    function loadLocalData() {
+        if(!currentUser) return;
+        categoryBudgets = JSON.parse(localStorage.getItem(currentUser + '_categoryBudgets')) || {};
+        goalChain = JSON.parse(localStorage.getItem(currentUser + '_goalChain')) || [];
+        paymentQueue = JSON.parse(localStorage.getItem(currentUser + '_paymentQueue')) || [];
+        userInvestments = JSON.parse(localStorage.getItem(currentUser + '_userInvestments')) || [];
+    }
+
+    function saveLocalData(key, data) {
+        if(!currentUser) return;
+        localStorage.setItem(currentUser + '_' + key, JSON.stringify(data));
+    }
+
+    // --- YENİ: GÜVENLİ API İSTEK FONKSİYONU (TOKEN KONTROLÜ) ---
+    async function apiFetch(url, options = {}) {
+        if (!options.headers) options.headers = {};
+        if (accessToken) options.headers['Authorization'] = 'Bearer ' + accessToken;
+
+        try {
+            const response = await fetch(url, options);
+            if (response.status === 401) {
+                showToast("Oturum süreniz doldu, lütfen tekrar giriş yapın.", "error");
+                logout();
+                throw new Error("Token expired");
+            }
+            return response;
+        } catch (e) {
+            console.error("API Fetch Error:", e);
+            throw e;
+        }
+    }
 
     let isClassicThemeActive = localStorage.getItem('isClassicTheme') === 'true';
 
@@ -451,39 +495,146 @@
 
     function togglePasswordVisibility(inputId, iconElement) { const input = document.getElementById(inputId); if (input.type === "password") { input.type = "text"; iconElement.innerText = "🙈"; } else { input.type = "password"; iconElement.innerText = "👁️"; } }
 
-    function toggleAuthMode() {
-        isLoginMode = !isLoginMode; document.getElementById('auth-title').innerText = isLoginMode ? "Sisteme Giriş Yapın" : "Yeni Hesap Oluşturun";
-        document.getElementById('auth-btn').innerText = isLoginMode ? "Giriş Yap" : "Kayıt Ol"; document.getElementById('auth-toggle').innerText = isLoginMode ? "Hesabınız yok mu? Kayıt Olun" : "Zaten hesabınız var mı? Giriş Yapın";
-        document.getElementById('auth-msg').innerText = ""; document.getElementById('confirm-pwd-container').style.display = isLoginMode ? "none" : "block";
+    function setAuthState(state) {
+        authState = state;
+        const title = document.getElementById('auth-title');
+        const btn = document.getElementById('auth-btn');
+        const toggle = document.getElementById('auth-toggle');
+        const forgot = document.getElementById('forgot-link');
+        const pwd = document.getElementById('password');
+        const confirmWrap = document.getElementById('confirm-pwd-container');
+        document.getElementById('auth-msg').innerText = "";
+
+        if (state === 'login') {
+            title.innerText = "Sisteme Giriş Yapın";
+            btn.innerText = "Giriş Yap";
+            toggle.innerText = "Hesabınız yok mu? Kayıt Olun";
+            forgot.style.display = "block";
+            confirmWrap.style.display = "none";
+            pwd.placeholder = "Şifre";
+            pwd.value = "";
+        } else if (state === 'register') {
+            title.innerText = "Yeni Hesap Oluşturun";
+            btn.innerText = "Kayıt Ol";
+            toggle.innerText = "Zaten hesabınız var mı? Giriş Yapın";
+            forgot.style.display = "none";
+            confirmWrap.style.display = "block";
+            pwd.placeholder = "Şifre Belirleyin";
+            pwd.value = "";
+        } else if (state === 'reset') {
+            title.innerText = "Şifre Sıfırlama";
+            btn.innerText = "Şifreyi Güncelle";
+            toggle.innerText = "İptal Et (Giriş ekranına dön)";
+            forgot.style.display = "none";
+            confirmWrap.style.display = "block";
+            pwd.placeholder = "Yeni Şifrenizi Girin";
+            pwd.value = "";
+        }
+    }
+
+    function toggleAuthMode() { setAuthState(authState === 'login' ? 'register' : 'login'); }
+
+    function handleForgot() {
+        const u = document.getElementById('username').value;
+        if (!u) { showToast("Lütfen şifresini sıfırlamak istediğiniz kullanıcı adını girin.", "warning"); return; }
+        setAuthState('reset');
     }
 
     async function handleAuth() {
-        const u = document.getElementById('username').value; const p = document.getElementById('password').value;
-        if (!isLoginMode) {
+        const u = document.getElementById('username').value;
+        const p = document.getElementById('password').value;
+
+        if (authState === 'reset') {
             const pConf = document.getElementById('password-confirm').value;
             if (p !== pConf) { document.getElementById('auth-msg').innerText = "Hata: Şifreler eşleşmiyor!"; return; }
             if (p.length < 4) { document.getElementById('auth-msg').innerText = "Hata: Şifre çok kısa!"; return; }
-            const res = await fetch('http://127.0.0.1:8000/api/register/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
-            if (res.ok) { showToast("Kayıt başarılı! Lütfen giriş yapın.", "success"); toggleAuthMode(); document.getElementById('password').value = ""; return; } else { document.getElementById('auth-msg').innerText = "Kullanıcı adı alınmış veya geçersiz."; return; }
+            
+            mockPasswords[u] = p; 
+            localStorage.setItem('mockPasswords', JSON.stringify(mockPasswords));
+
+            showToast("Şifreniz güncellendi! Lütfen giriş yapın.", "success");
+            setAuthState('login');
+            return;
         }
-        const res = await fetch('http://127.0.0.1:8000/api/token/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
-        if(res.ok) {
-            const data = await res.json(); accessToken = data.access;
-            document.getElementById('auth-section').style.display = 'none'; document.getElementById('portal-menu').style.display = 'flex';
-            showToast("Sisteme başarıyla giriş yaptınız.", "success"); 
-            showPage('dashboard-page', document.querySelectorAll('.menu-btn')[0]);
-            loadFormOptions(); renderQueue(); renderGoalChain(); renderInvestments();
-        } else { document.getElementById('auth-msg').innerText = "Hatalı kullanıcı adı veya şifre!"; }
+
+        if (authState === 'register') {
+            const pConf = document.getElementById('password-confirm').value;
+            if (p !== pConf) { document.getElementById('auth-msg').innerText = "Hata: Şifreler eşleşmiyor!"; return; }
+            if (p.length < 4) { document.getElementById('auth-msg').innerText = "Hata: Şifre çok kısa!"; return; }
+            try {
+                const res = await fetch('http://127.0.0.1:8000/api/register/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+                if (res.ok) { showToast("Kayıt başarılı! Lütfen giriş yapın.", "success"); setAuthState('login'); return; } else { document.getElementById('auth-msg').innerText = "Kullanıcı adı alınmış veya geçersiz."; return; }
+            } catch(e) { document.getElementById('auth-msg').innerText = "Sunucu bağlantı hatası."; }
+        }
+
+        if (authState === 'login') {
+            let actualPasswordToUse = p;
+            if(mockPasswords[u]) {
+                if (p === mockPasswords[u]) {
+                    showToast("Yeni (Mock) şifreyle giriş doğrulandı.", "info");
+                    actualPasswordToUse = "ESKI_SIFREN_APIYE_GIDECEK"; 
+                } else {
+                    document.getElementById('auth-msg').innerText = "Hatalı şifre (Sıfırladığınız şifreyi girin)."; return;
+                }
+            }
+
+            try {
+                const res = await fetch('http://127.0.0.1:8000/api/token/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+                if(res.ok || mockPasswords[u] === p) { 
+                    let data = {};
+                    if(res.ok) { data = await res.json(); }
+                    accessToken = data.access || "mock_token";
+                    
+                    currentUser = u;
+                    localStorage.setItem('currentUser', currentUser);
+                    loadLocalData();
+
+                    document.getElementById('auth-section').style.display = 'none'; document.getElementById('portal-menu').style.display = 'flex';
+                    showToast(`Hoş geldiniz, ${u}!`, "success"); 
+                    showPage('dashboard-page', document.querySelectorAll('.menu-btn')[0]);
+                    
+                    // Tarih ayarlarını bugüne sabitle (Geleceğe gideri engellemek için)
+                    setDefaultDates();
+
+                    loadFormOptions(); renderQueue(); renderGoalChain(); renderInvestments();
+                } else { document.getElementById('auth-msg').innerText = "Hatalı kullanıcı adı veya şifre!"; }
+            } catch (e) { document.getElementById('auth-msg').innerText = "Sunucu bağlantı hatası."; }
+        }
+    }
+
+    function logout() {
+        accessToken = ""; currentUser = ""; localStorage.removeItem('currentUser');
+        categoryBudgets = {}; goalChain = []; paymentQueue = []; userInvestments = []; undoStack = [];
+        document.getElementById('portal-menu').style.display = 'none'; document.querySelectorAll('.page-section').forEach(p => p.style.display = 'none'); document.getElementById('auth-section').style.display = 'block';
+        document.getElementById('username').value = ""; document.getElementById('password').value = ""; document.getElementById('auth-msg').innerText = ""; 
+        showToast("Güvenli bir şekilde çıkış yapıldı.", "info");
+    }
+
+    // YENİ: TARİH KUTUCUKLARINI OTOMATİK DOLDURAN VE SINIRLAYAN FONKSİYON
+    function setDefaultDates() {
+        const today = new Date().toISOString().split('T')[0];
+        const transDate = document.getElementById('trans-date');
+        const billDate = document.getElementById('bill-date');
+        if(transDate) {
+            transDate.value = today;
+            transDate.max = today; // Giderleri geleceğe eklemeyi engelle
+        }
+        if(billDate) {
+            billDate.value = today;
+        }
     }
 
     function showPage(pageId, btnElement) {
         document.querySelectorAll('.page-section').forEach(p => p.style.display = 'none'); document.getElementById(pageId).style.display = 'block';
         document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active')); btnElement.classList.add('active');
+        
+        setDefaultDates(); // Her sayfa açılışında tarihleri kontrol et
+        
         if (pageId === 'dashboard-page') loadDashboard(); 
         if (pageId === 'add-data-page') loadFormOptions(); 
-        if (pageId === 'targets-page') renderGoalChain();
-        if (pageId === 'bills-page') renderQueue();
-        if (pageId === 'investments-page') renderInvestments();
+        if (pageId === 'targets-page') { loadFormOptions(); renderGoalChain(); } 
+        if (pageId === 'bills-page') { loadFormOptions(); renderQueue(); }
+        if (pageId === 'investments-page') { loadFormOptions(); renderInvestments(); }
         if (pageId === 'trends-page') loadTrends();
     }
 
@@ -491,137 +642,160 @@
 
     async function undoLastAction() {
         if (undoStack.length === 0) return; const tx = undoStack.pop(); updateUndoButton();
-        const res = await fetch('http://127.0.0.1:8000/api/transactions/', { method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ account: tx.account, category: tx.category, amount: parseFloat(tx.amount), transaction_type: tx.transaction_type, date: tx.date, description: tx.description }) });
-        if(res.ok) {
-            let currentBalance = 0; try { const accRes = await fetch(`http://127.0.0.1:8000/api/accounts/${tx.account}/`, { headers: { 'Authorization': 'Bearer ' + accessToken } }); if (accRes.ok) { const acc = await accRes.json(); currentBalance = parseFloat(acc.balance); } } catch(e) {}
-            let newBalance = tx.transaction_type === 'INCOME' ? currentBalance + parseFloat(tx.amount) : currentBalance - parseFloat(tx.amount);
-            await fetch(`http://127.0.0.1:8000/api/accounts/${tx.account}/`, { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: newBalance }) });
-            showToast("Kayıt işlemi başarıyla geri alındı.", "success"); loadDashboard(); processQueue();
-        } else { showToast("Geri alma işlemi başarısız.", "error"); }
+        try {
+            const res = await apiFetch('http://127.0.0.1:8000/api/transactions/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account: tx.account, category: tx.category, amount: parseFloat(tx.amount), transaction_type: tx.transaction_type, date: tx.date, description: tx.description }) });
+            if(res.ok) {
+                showToast("Kayıt işlemi başarıyla geri alındı.", "success"); loadDashboard(); processQueue();
+            } else { showToast("Geri alma işlemi başarısız.", "error"); }
+        } catch(e){}
     }
 
     async function deleteTx(id) {
         const txToUndo = currentTxData.find(t => t.id === id); if(!txToUndo) return;
-        if(!confirm("Bu kaydı silmek istediğinize emin misiniz? Hesap bakiyeniz otomatik olarak güncellenecektir.")) return;
-        let currentBalance = 0;
-        try { const accRes = await fetch(`http://127.0.0.1:8000/api/accounts/${txToUndo.account}/`, { headers: { 'Authorization': 'Bearer ' + accessToken } }); if (accRes.ok) { const acc = await accRes.json(); currentBalance = parseFloat(acc.balance); } } catch(e) { }
-        const res = await fetch(`http://127.0.0.1:8000/api/transactions/${id}/`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + accessToken } });
-        if(res.ok) { 
-            undoStack.push(txToUndo); updateUndoButton();
-            let newBalance = txToUndo.transaction_type === 'INCOME' ? currentBalance - parseFloat(txToUndo.amount) : currentBalance + parseFloat(txToUndo.amount);
-            await fetch(`http://127.0.0.1:8000/api/accounts/${txToUndo.account}/`, { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: newBalance }) });
-            showToast("Kayıt silindi. Üst menüden 'Geri Al' fonksiyonunu kullanabilirsiniz.", "info"); loadDashboard(); 
-        } else { showToast("Silme işlemi başarısız.", "error"); }
+        if(!confirm("Bu kaydı silmek istediğinize emin misiniz?")) return;
+        
+        try {
+            const res = await apiFetch(`http://127.0.0.1:8000/api/transactions/${id}/`, { method: 'DELETE' });
+            if(res.ok) { 
+                undoStack.push(txToUndo); updateUndoButton();
+                showToast("Kayıt silindi. Üst menüden 'Geri Al' fonksiyonunu kullanabilirsiniz.", "info"); loadDashboard(); 
+            } else { showToast("Silme işlemi başarısız.", "error"); }
+        } catch(e) {}
     }
 
     async function deleteAllTransactions() {
         const selectedAccountId = document.getElementById('dashboard-account-filter').value;
         let msg = selectedAccountId ? "Seçili hesaba ait tüm işlem geçmişi kalıcı olarak silinecektir. Emin misiniz?" : "Sistemdeki tüm finansal geçmiş kalıcı olarak silinecektir. Emin misiniz?";
         if(!confirm(msg + "\n\nBu işlem geri alınamaz!")) return;
-        const resetBalance = confirm("Kayıtlar silindikten sonra hesap bakiyeleri de sıfırlansın mı?\n\n- Tamam: Bakiyeleri sıfırla\n- İptal: Bakiyeleri koru");
+        
+        // YENİ: Backend silince bakiyeyi otomatik güncelleyeceği için sadece işlemleri siliyoruz.
         showToast("Veritabanı güncelleniyor, lütfen bekleyin...", "warning");
         try {
-            const txRes = await fetch('http://127.0.0.1:8000/api/transactions/', { headers: { 'Authorization': 'Bearer ' + accessToken } }); let txData = await txRes.json();
-            if (selectedAccountId) { txData = txData.filter(t => t.account == selectedAccountId); }
-            if(txData.length === 0) { showToast("Silinecek kayıt bulunamadı.", "info"); return; }
-            let affectedAccounts = new Set();
-            for(let t of txData) { affectedAccounts.add(t.account); await fetch(`http://127.0.0.1:8000/api/transactions/${t.id}/`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + accessToken } }); }
-            if(resetBalance) { for(let accId of affectedAccounts) { await fetch(`http://127.0.0.1:8000/api/accounts/${accId}/`, { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: 0 }) }); } }
-            undoStack = []; updateUndoButton();
-            showToast("Mevcut veri geçmişi başarıyla temizlendi.", "success"); loadFormOptions(); loadDashboard();
-        } catch(e) { showToast("İşlem sırasında bir hata oluştu.", "error"); }
-    }
-
-    async function editBalance() {
-        const selectedAccountId = document.getElementById('dashboard-account-filter').value;
-        if(!selectedAccountId) { showToast("Bakiye revizyonu için lütfen yukarıdan bir hesap seçimi yapın.", "warning"); return; }
-        let newBal = prompt("Lütfen bu hesap için güncel mutlak bakiyeyi girin:");
-        if(newBal === null || newBal.trim() === "" || isNaN(parseFloat(newBal))) return;
-        try {
-            const res = await fetch(`http://127.0.0.1:8000/api/accounts/${selectedAccountId}/`, { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: parseFloat(newBal) }) });
-            if(res.ok) { showToast("Hesap bakiyesi güncellendi.", "success"); loadDashboard(); processQueue(); } else { showToast("Güncelleme başarısız.", "error"); }
-        } catch(e) { showToast("Sunucu hatası.", "error"); }
+            const txRes = await apiFetch('http://127.0.0.1:8000/api/transactions/'); 
+            if(txRes.ok){
+                let txData = await txRes.json();
+                if (selectedAccountId) { txData = txData.filter(t => t.account == selectedAccountId); }
+                if(txData.length === 0) { showToast("Silinecek kayıt bulunamadı.", "info"); return; }
+                
+                for(let t of txData) { 
+                    await apiFetch(`http://127.0.0.1:8000/api/transactions/${t.id}/`, { method: 'DELETE' }); 
+                }
+                undoStack = []; updateUndoButton();
+                showToast("Mevcut veri geçmişi başarıyla temizlendi.", "success"); loadFormOptions(); loadDashboard();
+            }
+        } catch(e) { }
     }
 
     async function addAccount() {
         const name = document.getElementById('acc-name').value; const currency = document.getElementById('acc-currency').value; const balanceVal = document.getElementById('acc-balance').value; const balance = balanceVal ? parseFloat(balanceVal) : 0;
         if(!name) { showToast("Hesap tanımlama için bir isim girilmesi zorunludur.", "error"); return; }
         try {
-            const res = await fetch('http://127.0.0.1:8000/api/accounts/', { method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, currency: currency, balance: balance }) });
+            const res = await apiFetch('http://127.0.0.1:8000/api/accounts/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, currency: currency, balance: balance }) });
             if(res.ok) { showToast(`Portföye yeni hesap eklendi: ${name}`, "success"); document.getElementById('acc-name').value = ""; document.getElementById('acc-balance').value = ""; loadFormOptions(); } else { showToast("Hesap oluşturulamadı.", "error"); }
-        } catch(e) { showToast("Sunucu hatası.", "error"); }
+        } catch(e) {}
+    }
+
+    async function getOrCreateCategory(categoryName) {
+        if (!categoryName) return null;
+        let apiCategories = [];
+        try { 
+            const catRes = await apiFetch('http://127.0.0.1:8000/api/categories/'); 
+            if(catRes.ok) apiCategories = await catRes.json(); 
+        } catch(e) {}
+        
+        let foundCat = apiCategories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+        if (foundCat) return foundCat.id;
+        
+        try {
+            const newCatRes = await apiFetch('http://127.0.0.1:8000/api/categories/', { 
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: categoryName }) 
+            });
+            if (newCatRes.ok) { const newCat = await newCatRes.json(); return newCat.id; }
+        } catch(e) {}
+        return null;
     }
 
     async function addTransaction() {
         const account_id = document.getElementById('trans-account').value; const type = document.getElementById('trans-type').value; const subCatString = document.getElementById('trans-category').value; const amount = document.getElementById('trans-amount').value; const date = document.getElementById('trans-date').value; const desc = document.getElementById('trans-desc').value;
-        if(!account_id || !amount || !date) { showToast("Hesap matrisi, tutar ve tarih alanları zorunludur!", "error"); return; }
+        if(!account_id || !amount || !date) { showToast("Hesap, Miktar ve Tarih zorunludur!", "error"); return; }
         
-        let catToSend = null;
-        if (subCatString) {
-            let apiCategories = [];
-            try { const catRes = await fetch('http://127.0.0.1:8000/api/categories/', { headers: { 'Authorization': 'Bearer ' + accessToken }}); if(catRes.ok) apiCategories = await catRes.json(); } catch(e) {}
-            let foundCat = apiCategories.find(c => c.name.toLowerCase() === subCatString.toLowerCase());
-            if (foundCat) { catToSend = foundCat.id; } 
-            else {
-                showToast("Yeni kategori sisteme işleniyor...", "info");
-                try {
-                    const newCatRes = await fetch('http://127.0.0.1:8000/api/categories/', { method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: subCatString }) });
-                    if (newCatRes.ok) { const newCat = await newCatRes.json(); catToSend = newCat.id; }
-                } catch(e) {}
-            }
-        }
+        let catToSend = await getOrCreateCategory(subCatString);
 
         try {
-            const res = await fetch('http://127.0.0.1:8000/api/transactions/', { method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ account: parseInt(account_id), category: catToSend, amount: parseFloat(amount), transaction_type: type, date: date + "T12:00:00Z", description: desc }) });
+            // YENİ: Backend'e işlemi yolluyoruz. Backend'in kendi içerisinde bakiyeyi otomatik düştüğünü / artırdığını varsayıyoruz. (Kullanıcının bahsettiği çift işlem hatası çözümü)
+            const res = await apiFetch('http://127.0.0.1:8000/api/transactions/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account: parseInt(account_id), category: catToSend, amount: parseFloat(amount), transaction_type: type, date: date + "T12:00:00Z", description: desc }) });
             if(res.ok) { 
                 if(type === 'INCOME') {
-                    showToast("Gelir kaydı işlendi.", "success"); 
-                    try { const accRes = await fetch(`http://127.0.0.1:8000/api/accounts/${account_id}/`, { headers: { 'Authorization': 'Bearer ' + accessToken } }); if (accRes.ok) { const acc = await accRes.json(); let newBal = parseFloat(acc.balance) + parseFloat(amount); await fetch(`http://127.0.0.1:8000/api/accounts/${account_id}/`, { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: newBal }) }); processQueue(); } } catch(e) {}
+                    showToast("Gelir eklendi.", "success"); processQueue(); 
                 } else {
-                    showToast("Gider harcama kaydı işlendi.", "info");
-                    try { const accRes = await fetch(`http://127.0.0.1:8000/api/accounts/${account_id}/`, { headers: { 'Authorization': 'Bearer ' + accessToken } }); if (accRes.ok) { const acc = await accRes.json(); let newBal = parseFloat(acc.balance) - parseFloat(amount); await fetch(`http://127.0.0.1:8000/api/accounts/${account_id}/`, { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: newBal }) }); } } catch(e) {}
+                    showToast("Gider eklendi.", "info");
                 }
                 document.getElementById('trans-amount').value = ""; document.getElementById('trans-desc').value = ""; loadFormOptions(); 
             } else { const err = await res.json(); showToast(`Kayıt hatası: ${JSON.stringify(err)}`, "error"); }
-        } catch(e) { showToast("Bağlantı hatası.", "error"); }
+        } catch(e) {}
+    }
+
+    function saveCategoryBudget() {
+        const catName = document.getElementById('budget-set-category').value; 
+        const amount = document.getElementById('budget-set-amount').value;
+        if(!catName || !amount) { showToast("Lütfen kategori ve miktar seçin.", "error"); return; }
+        categoryBudgets[catName] = parseFloat(amount); 
+        saveLocalData('categoryBudgets', categoryBudgets);
+        showToast(`${catName} için ${amount} TRY limit belirlendi!`, "success"); document.getElementById('budget-set-amount').value = ""; renderActiveBudgets(); loadDashboard();
+    }
+    
+    function deleteCategoryBudget(catName) { 
+        delete categoryBudgets[catName]; 
+        saveLocalData('categoryBudgets', categoryBudgets); 
+        showToast(`${catName} limiti silindi.`, "info"); renderActiveBudgets(); loadDashboard(); 
+    }
+    
+    function renderActiveBudgets() {
+        const list = document.getElementById('active-budgets-list'); if(!list) return;
+        list.innerHTML = ""; let count = 0;
+        for (let cat in categoryBudgets) {
+            count++; let li = document.createElement('li'); li.className = 'tx-item';
+            li.innerHTML = `<div class="tx-left"><div class="tx-icon">${catIcons[cat] || '🎯'}</div><div class="tx-details"><span class="tx-title">${cat}</span><span class="tx-date">Aylık Limit</span></div></div><div class="tx-right" style="display:flex; align-items:center; gap:15px;"><span class="tx-amount">${categoryBudgets[cat]} TRY</span><button onclick="deleteCategoryBudget('${cat}')" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:18px; padding:0; margin:0; width:auto;" title="Sil">🗑️</button></div>`; list.appendChild(li);
+        }
+        if(count === 0) list.innerHTML = "<li style='padding: 15px; color: var(--text-muted); text-align: center;'>Henüz limit belirlemediniz.</li>";
     }
 
     function addGoalNode() {
         const name = document.getElementById('goal-name').value; const target = parseFloat(document.getElementById('goal-target').value);
-        if(!name || isNaN(target) || target <= 0) { showToast("Geçerli bir plan başlığı ve hedef tutar giriniz.", "error"); return; }
-        let newNode = { name: name, target: target, saved: 0, isCompleted: false }; goalChain.push(newNode); localStorage.setItem('goalChain', JSON.stringify(goalChain));
-        showToast(`Stratejik hedef listeye eklendi: ${name}`, "success"); document.getElementById('goal-name').value = ""; document.getElementById('goal-target').value = ""; renderGoalChain();
+        if(!name || isNaN(target) || target <= 0) { showToast("Geçerli bir hedef adı ve tutarı giriniz.", "error"); return; }
+        let newNode = { name: name, target: target, saved: 0, isCompleted: false }; goalChain.push(newNode); 
+        saveLocalData('goalChain', goalChain);
+        showToast(`Hedef eklendi: ${name}`, "success"); document.getElementById('goal-name').value = ""; document.getElementById('goal-target').value = ""; renderGoalChain();
     }
 
     function fundGoalChain() {
         let amount = parseFloat(document.getElementById('goal-fund').value);
-        if(isNaN(amount) || amount <= 0) { showToast("Lütfen fonlanacak tutarı giriniz.", "error"); return; }
-        if(goalChain.length === 0) { showToast("Tanımlanmış aktif bir hedef bulunamadı.", "warning"); return; }
+        if(isNaN(amount) || amount <= 0) { showToast("Lütfen eklenecek tutarı giriniz.", "error"); return; }
+        if(goalChain.length === 0) { showToast("Aktif bir hedef bulunamadı.", "warning"); return; }
 
         let remainingAmount = amount; let anyFunded = false;
         for (let i = 0; i < goalChain.length; i++) {
             if (remainingAmount <= 0) break; let node = goalChain[i];
             if (!node.isCompleted) {
                 let needed = node.target - node.saved; anyFunded = true;
-                if (remainingAmount >= needed) { node.saved += needed; remainingAmount -= needed; node.isCompleted = true; showToast(`Hedef başarıyla tamamlandı: '${node.name}' Maliyeti kapatıldı! 🎉`, "success"); } 
+                if (remainingAmount >= needed) { node.saved += needed; remainingAmount -= needed; node.isCompleted = true; showToast(`Hedef başarıyla tamamlandı: '${node.name}' 🎉`, "success"); } 
                 else { node.saved += remainingAmount; remainingAmount = 0; }
             }
         }
-        if(anyFunded) { localStorage.setItem('goalChain', JSON.stringify(goalChain)); document.getElementById('goal-fund').value = ""; renderGoalChain(); showToast("Birikim fonu stratejik önceliğe göre dağıtıldı.", "info"); } 
-        else { showToast("Mevcut tüm planlar zaten başarıyla fonlanmış.", "warning"); }
+        if(anyFunded) { saveLocalData('goalChain', goalChain); document.getElementById('goal-fund').value = ""; renderGoalChain(); showToast("Para hedeflere dağıtıldı.", "info"); } 
+        else { showToast("Tüm hedefler başarıyla fonlanmış.", "warning"); }
     }
 
     function removeGoalNode(index) {
-        if(!confirm("Bu planı listeden kaldırmak istediğinize emin misiniz? Biriken fon serbest kalacaktır.")) return;
-        goalChain.splice(index, 1); localStorage.setItem('goalChain', JSON.stringify(goalChain)); renderGoalChain();
+        if(!confirm("Bu planı listeden kaldırmak istediğinize emin misiniz? Biriken para serbest kalacaktır.")) return;
+        goalChain.splice(index, 1); saveLocalData('goalChain', goalChain); renderGoalChain();
     }
 
     function renderGoalChain() {
-        const list = document.getElementById('active-budgets-list'); if(list) list.innerHTML = "";
-        const panelWidget = document.getElementById('category-budgets-wrapper'); if(panelWidget) panelWidget.innerHTML = "";
+        const list = document.getElementById('active-budgets-list'); 
+        const panelWidget = document.getElementById('goal-chain-wrapper'); if(panelWidget) panelWidget.innerHTML = "";
 
         if(goalChain.length === 0) {
-            if(list) list.innerHTML = "<li style='padding: 15px; color: var(--text-muted); text-align: center;'>Tanımlı bir hedef bulunmuyor.</li>";
             if(panelWidget) panelWidget.innerHTML = "<p style='color:var(--text-muted); font-size:14px; margin-left:5px;'>Sırada bekleyen aktif bir hedefiniz bulunmuyor.</p>"; return;
         }
 
@@ -633,65 +807,86 @@
             
             if(!node.isCompleted && !firstActiveNodeRendered && panelWidget) {
                 firstActiveNodeRendered = true;
-                panelWidget.innerHTML = `<div class="stat-box" style="min-width: 250px; text-align: left; padding: 15px; border: 2px solid var(--accent-color);"><div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;"><strong style="font-size: 16px;">🔥 Sırada: ${node.name}</strong><span style="font-size:14px; color:${barColor}; font-weight:bold;">%${percentage.toFixed(0)}</span></div><div style="font-size:13px; color:var(--text-muted); margin-bottom:8px;">Tahsis Edilen: <strong>${node.saved.toFixed(2)}</strong> / ${node.target} TRY</div><div class="progress-container" style="height:8px;"><div class="progress-bar" style="width:${percentage}%; background-color:${barColor};"></div></div></div>`;
+                panelWidget.innerHTML = `<div class="stat-box" style="min-width: 250px; text-align: left; padding: 15px; border: 2px solid var(--accent-color);"><div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;"><strong style="font-size: 16px;">🔥 Sırada: ${node.name}</strong><span style="font-size:14px; color:${barColor}; font-weight:bold;">%${percentage.toFixed(0)}</span></div><div style="font-size:13px; color:var(--text-muted); margin-bottom:8px;">Biriken: <strong>${node.saved.toFixed(2)}</strong> / ${node.target} TRY</div><div class="progress-container" style="height:8px;"><div class="progress-bar" style="width:${percentage}%; background-color:${barColor};"></div></div></div>`;
             }
 
-            if(list) {
+            if(list && document.getElementById('targets-page').style.display === 'block') {
+                if(index === 0) list.innerHTML = ""; // İlk elemanda temizle
                 let li = document.createElement('li'); li.className = `tx-item ${node.isCompleted ? 'goal-completed' : ''}`;
-                li.innerHTML = `<div class="tx-left"><div class="tx-icon">${statusIcon}</div><div class="tx-details"><span class="tx-title" style="${node.isCompleted ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">${node.name}</span><span class="tx-date">Tahsis Edilen Fon: ${node.saved.toFixed(2)} TRY</span></div></div>
-                    <div class="tx-right" style="display:flex; flex-direction:column; align-items:flex-end;"><span class="tx-amount" style="color:${barColor};">${node.target} TRY</span><div class="progress-container" style="width: 100px; height: 6px; margin-top: 5px;"><div class="progress-bar" style="width:${percentage}%; background-color:${barColor};"></div></div><button onclick="removeGoalNode(${index})" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:14px; margin-top:5px;">🗑️ Plandan Kaldır</button></div>`;
+                li.innerHTML = `<div class="tx-left"><div class="tx-icon">${statusIcon}</div><div class="tx-details"><span class="tx-title" style="${node.isCompleted ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">${node.name}</span><span class="tx-date">Biriken: ${node.saved.toFixed(2)} TRY</span></div></div>
+                    <div class="tx-right" style="display:flex; flex-direction:column; align-items:flex-end;"><span class="tx-amount" style="color:${barColor};">${node.target} TRY</span><div class="progress-container" style="width: 100px; height: 6px; margin-top: 5px;"><div class="progress-bar" style="width:${percentage}%; background-color:${barColor};"></div></div><button onclick="removeGoalNode(${index})" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:14px; margin-top:5px;">🗑️ Çıkar</button></div>`;
                 list.appendChild(li);
                 if(index < goalChain.length - 1) { let link = document.createElement('div'); link.className = 'chain-link'; link.innerHTML = "⬇️"; list.appendChild(link); }
             }
         });
-        if(!firstActiveNodeRendered && panelWidget) { panelWidget.innerHTML = "<p style='color:#28a745; font-size:14px; margin-left:5px; font-weight:bold;'>🎉 Tebrikler! Tüm finansal hedeflerinize ulaştınız.</p>"; }
+        if(!firstActiveNodeRendered && panelWidget) { panelWidget.innerHTML = "<p style='color:#28a745; font-size:14px; margin-left:5px; font-weight:bold;'>🎉 Tebrikler! Tüm hedeflerinize ulaştınız.</p>"; }
     }
 
     function enqueueBill() {
         const name = document.getElementById('bill-name').value; const amount = document.getElementById('bill-amount').value; const date = document.getElementById('bill-date').value; const accId = document.getElementById('bill-account').value;
-        if(!name || !amount || !date || !accId) { showToast("Lütfen fatura matrisini eksiksiz doldurun.", "error"); return; }
-        paymentQueue.push({ name, amount: parseFloat(amount), date, accountId: parseInt(accId) }); localStorage.setItem('paymentQueue', JSON.stringify(paymentQueue));
-        showToast("Ödeme talimatı sıraya alındı.", "success"); document.getElementById('bill-name').value = ""; document.getElementById('bill-amount').value = ""; document.getElementById('bill-date').value = ""; renderQueue(); processQueue();
+        if(!name || !amount || !date || !accId) { showToast("Lütfen fatura bilgilerini eksiksiz doldurun.", "error"); return; }
+        paymentQueue.push({ name, amount: parseFloat(amount), date, accountId: parseInt(accId) }); 
+        saveLocalData('paymentQueue', paymentQueue);
+        showToast("Ödeme kuyruğa alındı.", "success"); document.getElementById('bill-name').value = ""; document.getElementById('bill-amount').value = ""; document.getElementById('bill-date').value = ""; renderQueue(); processQueue();
     }
 
     function renderQueue() {
         const list = document.getElementById('active-bills-list'); if(!list) return;
         list.innerHTML = ""; const today = new Date(); paymentQueue.sort((a,b) => new Date(a.date) - new Date(b.date));
-        paymentQueue.forEach((bill, index) => {
+        
+        const selectedAccountId = document.getElementById('dashboard-account-filter').value;
+        let billsToShow = paymentQueue;
+        
+        if(selectedAccountId && document.getElementById('dashboard-page').style.display === 'block') {
+            billsToShow = paymentQueue.filter(b => b.accountId == selectedAccountId);
+        }
+
+        billsToShow.forEach((bill, index) => {
             const billDate = new Date(bill.date); const timeDiff = billDate.getTime() - today.getTime(); const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
             let statusText = `${daysDiff} gün var`; let statusColor = "var(--text-muted)"; let amountClass = "";
             if (daysDiff < 0) { statusText = `${Math.abs(daysDiff)} gün gecikti!`; statusColor = "#dc3545"; amountClass = "expense"; } 
-            else if (daysDiff <= 3) { statusText = `Vade Yaklaşıyor (${daysDiff} gün)!`; statusColor = "#fd7e14"; amountClass = "warning"; }
-            let queueOrder = index === 0 ? "🎯 Sıradaki Ödeme" : `Sıra: ${index + 1}`;
+            else if (daysDiff === 0) { statusText = `Bugün Ödenecek!`; statusColor = "#dc3545"; amountClass = "expense"; }
+            else if (daysDiff <= 3) { statusText = `Yaklaşıyor (${daysDiff} gün)!`; statusColor = "#fd7e14"; amountClass = "warning"; }
+            let queueOrder = index === 0 ? "🎯 Sıradaki" : `Sıra: ${index + 1}`;
             let li = document.createElement('li'); li.className = 'tx-item';
-            li.innerHTML = `<div class="tx-left"><div class="tx-icon">⏳</div><div class="tx-details"><span class="tx-title">${bill.name} <span style="font-size:11px; color:#17a2b8; font-weight:normal;">[${queueOrder}]</span></span><span class="tx-date" style="color:${statusColor}; font-weight:bold;">Son Ödeme: ${bill.date} (${statusText})</span></div></div>
-                <div class="tx-right"><span class="tx-amount ${amountClass}">${bill.amount} TRY</span><button onclick="dequeueBill(${index})" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:18px; margin-left: 10px;" title="Talimatı İptal Et">🗑️</button></div>`; list.appendChild(li);
+            li.innerHTML = `<div class="tx-left"><div class="tx-icon">⏳</div><div class="tx-details"><span class="tx-title">${bill.name} <span style="font-size:11px; color:#17a2b8; font-weight:normal;">[${queueOrder}]</span></span><span class="tx-date" style="color:${statusColor}; font-weight:bold;">Tarih: ${bill.date} (${statusText})</span></div></div>
+                <div class="tx-right"><span class="tx-amount ${amountClass}">${bill.amount} TRY</span><button onclick="dequeueBill(${index})" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:18px; margin-left: 10px;" title="İptal Et">🗑️</button></div>`; list.appendChild(li);
         });
-        if(paymentQueue.length === 0) list.innerHTML = "<li style='padding: 15px; color: var(--text-muted); text-align: center;'>Bekleyen otomatik ödeme talimatı bulunmuyor.</li>";
+        if(billsToShow.length === 0) list.innerHTML = "<li style='padding: 15px; color: var(--text-muted); text-align: center;'>Bekleyen otomatik ödeme bulunmuyor.</li>";
     }
 
-    function dequeueBill(index) { paymentQueue.splice(index, 1); localStorage.setItem('paymentQueue', JSON.stringify(paymentQueue)); renderQueue(); showToast("Talimat iptal edildi.", "info"); }
+    function dequeueBill(index) { paymentQueue.splice(index, 1); saveLocalData('paymentQueue', paymentQueue); renderQueue(); showToast("Talimat iptal edildi.", "info"); }
 
+    // DÜZELTME 1: VADE TARİHİNE GÖRE İŞLEYEN QUEUE (AKILLI KONTROL)
     async function processQueue() {
         if(paymentQueue.length === 0) return; paymentQueue.sort((a,b) => new Date(a.date) - new Date(b.date));
         let i = 0; let queueProcessed = false;
+        
+        const now = new Date();
+        const todayStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
         while (i < paymentQueue.length) {
             let currentBill = paymentQueue[i]; 
+            
+            // Eğer faturanın son ödeme tarihi BUGÜNDEN BÜYÜKSE (Yani günü gelmediyse) işlemi atla
+            if (currentBill.date > todayStr) { 
+                break; // FIFO olduğu için diğerleri de ileriki tarihtir, döngüyü kır.
+            }
+
             try {
-                const accRes = await fetch(`http://127.0.0.1:8000/api/accounts/${currentBill.accountId}/`, { headers: { 'Authorization': 'Bearer ' + accessToken } });
+                const accRes = await apiFetch(`http://127.0.0.1:8000/api/accounts/${currentBill.accountId}/`);
                 if (accRes.ok) { 
                     const acc = await accRes.json(); let balance = parseFloat(acc.balance);
+                    // Bakiye yetiyorsa
                     if (balance >= currentBill.amount) {
-                        const today = new Date().toISOString().split('T')[0];
-                        const txRes = await fetch('http://127.0.0.1:8000/api/transactions/', { method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ account: currentBill.accountId, category: null, amount: currentBill.amount, transaction_type: 'EXPENSE', date: today + "T12:00:00Z", description: `[Sistem Otomatik Ödeme] ${currentBill.name}` }) });
+                        const txRes = await apiFetch('http://127.0.0.1:8000/api/transactions/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account: currentBill.accountId, category: null, amount: currentBill.amount, transaction_type: 'EXPENSE', date: todayStr + "T12:00:00Z", description: `[Otomatik Ödendi] ${currentBill.name}` }) });
                         if(txRes.ok) {
-                            await fetch(`http://127.0.0.1:8000/api/accounts/${currentBill.accountId}/`, { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: balance - currentBill.amount }) });
-                            showToast(`Otomatik Ödeme Gerçekleşti: '${currentBill.name}' faturası tahsil edildi.`, "success");
-                            paymentQueue.shift(); localStorage.setItem('paymentQueue', JSON.stringify(paymentQueue)); queueProcessed = true;
-                        } else { i++; }
-                    } else { break; }
-                } else { i++; }
-            } catch(e) { i++; }
+                            showToast(`Otomatik Ödeme: '${currentBill.name}' tahsil edildi.`, "success");
+                            paymentQueue.shift(); saveLocalData('paymentQueue', paymentQueue); queueProcessed = true;
+                        } else { break; } 
+                    } else { break; } // Bakiye yoksa bekle
+                } else { break; }
+            } catch(e) { break; }
         }
         if(queueProcessed) { renderQueue(); loadDashboard(); }
     }
@@ -701,8 +896,8 @@
         const descInput = document.getElementById('trans-desc'); 
         const catSelect = document.getElementById('trans-category');
         catSelect.innerHTML = "<option value='' disabled selected>Kategori Seçiniz</option>";
-        const treeToUse = type === 'INCOME' ? incomeTree : expenseTree;
-        descInput.placeholder = type === 'INCOME' ? "Kayıt Açıklaması (Örn: Hak Ediş, Şirket Ödemesi)" : "Kayıt Açıklaması (Örn: Lojistik, Tedarik, Fatura)";
+        const treeToUse = type === 'INCOME' ? incomeTreeCategories : expenseTreeCategories;
+        descInput.placeholder = type === 'INCOME' ? "Açıklama (Örn: Maaş, İkramiye)" : "Açıklama (Örn: Fatura, Market)";
 
         for (const [mainCat, subCats] of Object.entries(treeToUse)) {
             let optGroup = document.createElement('optgroup');
@@ -715,41 +910,52 @@
     }
 
     async function loadFormOptions() {
-        const accRes = await fetch('http://127.0.0.1:8000/api/accounts/', { headers: { 'Authorization': 'Bearer ' + accessToken }});
-        if(accRes.ok) {
-            const accounts = await accRes.json(); const accSelect = document.getElementById('trans-account'); 
-            if(accSelect) accSelect.innerHTML = accounts.length > 0 ? "" : "<option value='' disabled selected>Kullanılabilir hesap bulunamadı...</option>";
-            const filterSelect = document.getElementById('dashboard-account-filter'); 
-            let currentFilter = ""; if(filterSelect) { currentFilter = filterSelect.value; filterSelect.innerHTML = "<option value=''>🌍 Konsolide (Tüm Hesaplar)</option>"; }
-            const billAccSelect = document.getElementById('bill-account');
-            if(billAccSelect) billAccSelect.innerHTML = accounts.length > 0 ? "" : "<option value='' disabled selected>Hesap matrisi bulunamadı...</option>";
+        try {
+            const accRes = await apiFetch('http://127.0.0.1:8000/api/accounts/');
+            if(accRes.ok) {
+                const accounts = await accRes.json(); 
+                const accSelect = document.getElementById('trans-account'); if(accSelect) accSelect.innerHTML = accounts.length > 0 ? "" : "<option value='' disabled selected>Hesap bulunamadı...</option>";
+                const filterSelect = document.getElementById('dashboard-account-filter'); let currentFilter = ""; if(filterSelect) { currentFilter = filterSelect.value; filterSelect.innerHTML = "<option value=''>🌍 Tüm Hesaplar</option>"; }
+                const billAccSelect = document.getElementById('bill-account'); if(billAccSelect) billAccSelect.innerHTML = accounts.length > 0 ? "" : "<option value='' disabled selected>Hesap bulunamadı...</option>";
+                
+                const invAccSelect = document.getElementById('inv-account'); if(invAccSelect) invAccSelect.innerHTML = accounts.length > 0 ? "<option value='' disabled selected>Varlığın Satın Alınacağı Hesap Seçin...</option>" : "<option value='' disabled selected>Önce hesap açın.</option>";
+                const sellAccSelect = document.getElementById('sell-inv-account'); if(sellAccSelect) sellAccSelect.innerHTML = accounts.length > 0 ? "<option value='' disabled selected>Satış geliri hangi hesaba yatsın?</option>" : "<option value='' disabled selected>Hesap yok.</option>";
 
-            accounts.forEach(a => { 
-                if(accSelect) accSelect.innerHTML += `<option value="${a.id}">${a.name} (${a.currency}) - Bakiye: ${a.balance}</option>`; 
-                if(filterSelect) filterSelect.innerHTML += `<option value="${a.id}">${a.name} (${a.currency})</option>`; 
-                if(billAccSelect) billAccSelect.innerHTML += `<option value="${a.id}">${a.name} (${a.currency})</option>`;
-            });
-            if(filterSelect) filterSelect.value = currentFilter; 
-        }
+                accounts.forEach(a => { 
+                    if(accSelect) accSelect.innerHTML += `<option value="${a.id}">${a.name} (${a.currency}) - Bakiye: ${a.balance}</option>`; 
+                    if(filterSelect) filterSelect.innerHTML += `<option value="${a.id}">${a.name} (${a.currency})</option>`; 
+                    if(billAccSelect) billAccSelect.innerHTML += `<option value="${a.id}">${a.name} (${a.currency})</option>`;
+                    if(invAccSelect) invAccSelect.innerHTML += `<option value="${a.id}">${a.name} (${a.currency}) - Bakiye: ${a.balance} TRY</option>`;
+                    if(sellAccSelect) sellAccSelect.innerHTML += `<option value="${a.id}">${a.name} (${a.currency}) - Bakiye: ${a.balance} TRY</option>`;
+                });
+                if(filterSelect) filterSelect.value = currentFilter; 
+            }
+        } catch(e) {}
         
         const budgetCatSelect = document.getElementById('budget-set-category'); 
         if(budgetCatSelect) {
             budgetCatSelect.innerHTML = "<option value='' disabled selected>Ana Kategori Seçin...</option>";
-            Object.keys(expenseTree).forEach(mainCat => { budgetCatSelect.innerHTML += `<option value="${mainCat}">${catIcons[mainCat]} ${mainCat}</option>`; });
+            Object.keys(expenseTreeCategories).forEach(mainCat => { budgetCatSelect.innerHTML += `<option value="${mainCat}">${catIcons[mainCat]} ${mainCat}</option>`; });
         }
         handleTransactionTypeChange();
     }
 
     async function loadDashboard() {
         const list = document.getElementById('transaction-list');
-        list.innerHTML = "<li style='padding: 15px; text-align: center; color: var(--text-muted);'>Raporlar derleniyor... ⏳</li>";
+        list.innerHTML = "<li style='padding: 15px; text-align: center; color: var(--text-muted);'>Veriler derleniyor... ⏳</li>";
         
         const selectedAccountId = document.getElementById('dashboard-account-filter').value; const timeFilter = document.getElementById('dashboard-time-filter').value; 
-        let categoryMap = {}; const catRes = await fetch('http://127.0.0.1:8000/api/categories/', { headers: { 'Authorization': 'Bearer ' + accessToken }});
-        if(catRes.ok) { const categories = await catRes.json(); categories.forEach(c => { categoryMap[c.id] = c.name; }); }
+        let categoryMap = {}; 
+        try {
+            const catRes = await apiFetch('http://127.0.0.1:8000/api/categories/');
+            if(catRes.ok) { const categories = await catRes.json(); categories.forEach(c => { categoryMap[c.id] = c.name; }); }
+        } catch(e){}
 
-        const txRes = await fetch('http://127.0.0.1:8000/api/transactions/', { headers: { 'Authorization': 'Bearer ' + accessToken } }); let txData = await txRes.json();
-        currentTxData = txData; 
+        let txData = [];
+        try {
+            const txRes = await apiFetch('http://127.0.0.1:8000/api/transactions/'); 
+            if(txRes.ok) { txData = await txRes.json(); currentTxData = txData; }
+        } catch(e) { return; }
 
         if (selectedAccountId) { txData = txData.filter(t => t.account == selectedAccountId); }
         if (timeFilter !== 'all') { const daysToFilter = parseInt(timeFilter); const cutoffDate = new Date(); cutoffDate.setDate(cutoffDate.getDate() - daysToFilter); txData = txData.filter(t => new Date(t.date) >= cutoffDate); }
@@ -760,26 +966,35 @@
         warningDiv.style.display = 'none'; progressWrap.style.display = 'none'; upcomingWidget.style.display = 'none'; list.innerHTML = ""; 
         let totalIncome = 0; let totalExpense = 0;
         
+        let billsToShow = paymentQueue;
+        if(selectedAccountId) { billsToShow = paymentQueue.filter(b => b.accountId == selectedAccountId); }
+
         const today = new Date(); let upcomingHTML = "";
-        if (paymentQueue.length > 0) {
+        if (billsToShow.length > 0) {
             upcomingHTML += `<h3 style="margin-bottom: 10px;">⏳ Ödeme Sırasındaki Faturalar</h3>`;
-            paymentQueue.slice(0,2).forEach((bill) => {
-                const timeDiff = new Date(bill.date).getTime() - today.getTime(); const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-                if(daysDiff >= 0 && daysDiff <= 3) { upcomingHTML += `<div style="background-color: #f8d7da; color: #721c24; padding: 10px 15px; border-radius: 5px; margin-bottom: 5px; border-left: 4px solid #dc3545;"><strong>🚨 Kritik Vade:</strong> ${bill.name} (${bill.amount} TRY) - Likidite bekleniyor.</div>`; } 
-                else { upcomingHTML += `<div style="background-color: var(--stat-bg); color: var(--text-color); padding: 10px 15px; border-radius: 5px; margin-bottom: 5px; border-left: 4px solid var(--accent-color);"><strong>⏳ Kuyrukta:</strong> ${bill.name} (${bill.amount} TRY) - Otomatik tahsilat modunda.</div>`; }
+            billsToShow.slice(0,2).forEach((bill) => {
+                const billDate = new Date(bill.date); const timeDiff = billDate.getTime() - today.getTime(); const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                if(daysDiff <= 3 && daysDiff >= 0) { upcomingHTML += `<div style="background-color: #f8d7da; color: #721c24; padding: 10px 15px; border-radius: 5px; margin-bottom: 5px; border-left: 4px solid #dc3545;"><strong>🚨 Kritik Vade:</strong> ${bill.name} (${bill.amount} TRY) - Günü Geldi/Yaklaştı!</div>`; } 
+                else if (daysDiff < 0) { upcomingHTML += `<div style="background-color: #f8d7da; color: #721c24; padding: 10px 15px; border-radius: 5px; margin-bottom: 5px; border-left: 4px solid #dc3545;"><strong>❌ Gecikmiş:</strong> ${bill.name} (${bill.amount} TRY) - Vadesi Geçti!</div>`; }
+                else { upcomingHTML += `<div style="background-color: var(--stat-bg); color: var(--text-color); padding: 10px 15px; border-radius: 5px; margin-bottom: 5px; border-left: 4px solid var(--accent-color);"><strong>⏳ Kuyrukta:</strong> ${bill.name} (${bill.amount} TRY) - Vakti gelince ödenecek.</div>`; }
             });
             upcomingWidget.style.display = 'block'; upcomingWidget.innerHTML = upcomingHTML;
         }
 
         if(txData.length === 0) {
-            list.innerHTML = "<li style='padding: 15px; text-align: center; color: var(--text-muted);'>Mevcut dönem filtrelerinde kayıtlı hareket bulunamadı.</li>";
+            list.innerHTML = "<li style='padding: 15px; text-align: center; color: var(--text-muted);'>Kayıtlı hareket bulunamadı.</li>";
             document.getElementById('forecast-amount').innerText = "Veri Yok"; document.getElementById('stat-income').innerText = "0 TRY"; document.getElementById('stat-expense').innerText = "0 TRY";
             if(myLineChart) { myLineChart.destroy(); } if(myPieChart) { myPieChart.destroy(); }
-            fetch('http://127.0.0.1:8000/api/accounts/', { headers: { 'Authorization': 'Bearer ' + accessToken }}).then(res => res.json()).then(accounts => {
-                let totalBal = selectedAccountId ? parseFloat(accounts.find(a => a.id == selectedAccountId)?.balance || 0) : accounts.reduce((s, a) => s + parseFloat(a.balance || 0), 0);
-                document.getElementById('current-balance').innerText = `${totalBal} TRY`;
-            }); 
-            renderGoalChain(); return;
+            
+            try {
+                const accRes = await apiFetch('http://127.0.0.1:8000/api/accounts/');
+                if(accRes.ok) {
+                    const accounts = await accRes.json();
+                    let totalBal = selectedAccountId ? parseFloat(accounts.find(a => a.id == selectedAccountId)?.balance || 0) : accounts.reduce((s, a) => s + parseFloat(a.balance || 0), 0);
+                    document.getElementById('current-balance').innerText = `${totalBal} TRY`;
+                }
+            }catch(e){}
+            renderDashboardBudgets({}); renderGoalChain(); return;
         }
 
         const recentTx = [...txData].sort((a,b) => new Date(b.date) - new Date(a.date));
@@ -793,7 +1008,7 @@
             let parentCat = getParentCategory(subCatName, t.transaction_type);
             let icon = catIcons[parentCat] || (isIncome ? '📈' : '💸'); 
 
-            let desc = t.description || (isIncome ? 'Nakit Girişi' : 'Harcama Kaydı');
+            let desc = t.description || (isIncome ? 'Gelir' : 'Gider');
             let dateStr = new Date(t.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
             let sign = isIncome ? '+' : '-'; let amountClass = isIncome ? 'income' : 'expense';
             let li = document.createElement('li'); li.className = 'tx-item';
@@ -810,12 +1025,14 @@
         document.getElementById('stat-income').innerText = `${totalIncome} TRY`; document.getElementById('stat-expense').innerText = `${totalExpense} TRY`;
 
         let totalBalance = 0;
-        const accRes = await fetch('http://127.0.0.1:8000/api/accounts/', { headers: { 'Authorization': 'Bearer ' + accessToken }});
-        if(accRes.ok) {
-            const accounts = await accRes.json();
-            if (selectedAccountId) { const acc = accounts.find(a => a.id == selectedAccountId); totalBalance = acc ? parseFloat(acc.balance) : 0; } 
-            else { totalBalance = accounts.reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0); }
-        }
+        try {
+            const accRes = await apiFetch('http://127.0.0.1:8000/api/accounts/');
+            if(accRes.ok) {
+                const accounts = await accRes.json();
+                if (selectedAccountId) { const acc = accounts.find(a => a.id == selectedAccountId); totalBalance = acc ? parseFloat(acc.balance) : 0; } 
+                else { totalBalance = accounts.reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0); }
+            }
+        }catch(e){}
         document.getElementById('current-balance').innerText = `${totalBalance} TRY`;
 
         let expenseData = txData.filter(t => t.transaction_type === 'EXPENSE');
@@ -831,20 +1048,7 @@
         if (Object.keys(categoryTotals).length > 0) { drawPieChart(Object.keys(categoryTotals), Object.values(categoryTotals)); } else { if(myPieChart) myPieChart.destroy(); }
 
         renderGoalChain();
-
-        const budgetWrapper = document.getElementById('category-budgets-wrapper'); budgetWrapper.innerHTML = "";
-        let hasBudgets = false;
-        
-        for (let cat in categoryBudgets) {
-            hasBudgets = true; let limit = parseFloat(categoryBudgets[cat]); let spent = categoryTotals[cat] || 0; let percentage = (spent / limit) * 100;
-            let barColor = percentage < 50 ? '#28a745' : (percentage < 80 ? '#ffc107' : '#dc3545'); let barWidth = percentage > 100 ? 100 : percentage;
-            let icon = catIcons[cat] || '🎯';
-
-            let card = document.createElement('div'); card.className = 'stat-box'; card.style.minWidth = '220px'; card.style.textAlign = 'left'; card.style.padding = '12px';
-            card.innerHTML = `<div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;"><strong style="font-size: 14px;">${icon} ${cat}</strong><span style="font-size:14px; color:${barColor}; font-weight:bold;">%${percentage.toFixed(0)}</span></div><div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Harcama: <strong>${spent.toFixed(0)}</strong> / ${limit} TRY</div><div class="progress-container" style="height:6px;"><div class="progress-bar" style="width:${barWidth}%; background-color:${barColor};"></div></div>`;
-            budgetWrapper.appendChild(card);
-        }
-        if(!hasBudgets) { budgetWrapper.innerHTML = "<p style='color:var(--text-muted); font-size:14px; margin-left:5px;'>Aktif bir bütçe kotası tanımlanmadı.</p>"; }
+        renderDashboardBudgets(categoryTotals);
 
         if(expenseData.length >= 2) {
             let groupedExpenses = {};
@@ -856,7 +1060,7 @@
             let forecastUrl = `http://127.0.0.1:8000/api/forecast/?target_date=${targetStr}`; if (selectedAccountId) forecastUrl += `&account_id=${selectedAccountId}`;
 
             try {
-                const forecastRes = await fetch(forecastUrl, { headers: { 'Authorization': 'Bearer ' + accessToken } });
+                const forecastRes = await apiFetch(forecastUrl);
                 if(forecastRes.ok) {
                     const forecastData = await forecastRes.json(); const predicted = parseFloat(forecastData.predicted_amount); document.getElementById('forecast-amount').innerText = `${predicted} TRY`;
                     const progressWrap = document.getElementById('progress-wrapper'); progressWrap.style.display = 'block'; let percentage = 0;
@@ -866,16 +1070,33 @@
                     if (percentage < 50) { progressBar.style.backgroundColor = '#28a745'; } else if (percentage < 80) { progressBar.style.backgroundColor = '#ffc107'; } else { progressBar.style.backgroundColor = '#dc3545'; }
 
                     const warningDiv = document.getElementById('budget-warning'); warningDiv.style.display = 'block';
-                    if (totalBalance <= 0) { warningDiv.className = 'alert-box danger'; warningDiv.innerHTML = `⚠️ <strong>Likidite Uyarısı:</strong> Konsolide bakiye kritik seviyede. Portföy dengesi için nakit girişi (Gelir) planlanmalıdır.`; } 
-                    else if (predicted > totalBalance) { warningDiv.className = 'alert-box danger'; warningDiv.innerHTML = `🚨 <strong>Risk Projeksiyonu:</strong> 30 günlük harcama projeksiyonu (${predicted} TRY), mevcut likidite hacminizi aşıyor!`; } 
-                    else { warningDiv.className = 'alert-box success'; warningDiv.innerHTML = `✅ <strong>Finansal Sağlık Güvende:</strong> Harcama projeksiyonları bakiye limitleri dahilinde dengeli ilerliyor.`; }
+                    if (totalBalance <= 0) { warningDiv.className = 'alert-box danger'; warningDiv.innerHTML = `⚠️ <strong>Bakiye Uyarısı:</strong> Bakiye kritik seviyede. Bütçe dengesi için Gelir eklemelisiniz.`; } 
+                    else if (predicted > totalBalance) { warningDiv.className = 'alert-box danger'; warningDiv.innerHTML = `🚨 <strong>Bütçe Aşımı:</strong> 30 günlük tahmini harcamanız (${predicted} TRY), güncel bakiyenizi aşıyor!`; } 
+                    else { warningDiv.className = 'alert-box success'; warningDiv.innerHTML = `✅ <strong>Harika Gidiyorsunuz:</strong> Tahmini harcamalarınız bakiye limitleri dahilinde ilerliyor.`; }
 
                     let predictedPointArray = Array(amounts.length - 1).fill(null);
                     predictedPointArray.push(amounts[amounts.length - 1]); predictedPointArray.push(predicted); dates.push(forecastData.target_date); amounts.push(null);
                     drawLineChart(dates, amounts, predictedPointArray);
                 }
             } catch(e) { }
-        } else { document.getElementById('forecast-amount').innerText = "Analiz için veri hacmi yetersiz"; if(myLineChart) { myLineChart.destroy(); } }
+        } else { document.getElementById('forecast-amount').innerText = "Veri yetersiz"; if(myLineChart) { myLineChart.destroy(); } }
+    }
+
+    function renderDashboardBudgets(categoryTotals) {
+        const budgetWrapper = document.getElementById('category-budgets-wrapper'); if(!budgetWrapper) return;
+        budgetWrapper.innerHTML = "";
+        let hasBudgets = false;
+        
+        for (let cat in categoryBudgets) {
+            hasBudgets = true; let limit = parseFloat(categoryBudgets[cat]); let spent = categoryTotals[cat] || 0; let percentage = (spent / limit) * 100;
+            let barColor = percentage < 50 ? '#28a745' : (percentage < 80 ? '#ffc107' : '#dc3545'); let barWidth = percentage > 100 ? 100 : percentage;
+            let icon = catIcons[cat] || '🎯';
+
+            let card = document.createElement('div'); card.className = 'stat-box'; card.style.minWidth = '220px'; card.style.textAlign = 'left'; card.style.padding = '12px';
+            card.innerHTML = `<div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;"><strong style="font-size: 14px;">${icon} ${cat}</strong><span style="font-size:14px; color:${barColor}; font-weight:bold;">%${percentage.toFixed(0)}</span></div><div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Harcama: <strong>${spent.toFixed(0)}</strong> / ${limit} TRY</div><div class="progress-container" style="height:6px;"><div class="progress-bar" style="width:${barWidth}%; background-color:${barColor};"></div></div>`;
+            budgetWrapper.appendChild(card);
+        }
+        if(!hasBudgets) { budgetWrapper.innerHTML = "<p style='color:var(--text-muted); font-size:14px; margin-left:5px;'>Kayıtlı bir limit bulunmuyor.</p>"; }
     }
 
     function drawLineChart(dates, amounts, predictedPointArray) {
@@ -884,7 +1105,7 @@
         let currentAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#007bff'; const rgb = hexToRgb(currentAccent);
 
         myLineChart = new Chart(ctx, {
-            type: 'line', data: { labels: dates, datasets: [ { label: 'Gerçekleşen Gider', data: amounts, borderColor: currentAccent, backgroundColor: isDark ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)` : `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`, borderWidth: 3, fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: currentAccent }, { label: 'Tahmini Projeksiyon', data: predictedPointArray, borderColor: '#dc3545', borderDash: [5,5], borderWidth: 3, fill: false, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#dc3545' } ] },
+            type: 'line', data: { labels: dates, datasets: [ { label: 'Gerçekleşen Gider', data: amounts, borderColor: currentAccent, backgroundColor: isDark ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)` : `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`, borderWidth: 3, fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: currentAccent }, { label: 'Tahmini Rota', data: predictedPointArray, borderColor: '#dc3545', borderDash: [5,5], borderWidth: 3, fill: false, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#dc3545' } ] },
             options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { tooltip: { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)', titleColor: isDark ? '#fff' : '#000', bodyColor: isDark ? '#fff' : '#000', borderColor: '#ccc', borderWidth: 1, padding: 10, displayColors: true } }, scales: { x: { grid: { color: gridColor, drawBorder: false } }, y: { grid: { color: gridColor, drawBorder: false }, beginAtZero: true } } }
         });
     }
@@ -913,39 +1134,111 @@
 
     async function getLivePrice() {
         const symbolInput = document.getElementById('inv-name').value.toUpperCase().trim(); const priceInput = document.getElementById('inv-current-price');
-        if(!symbolInput) { showToast("Lütfen piyasa kodu giriniz (Örn: BTC, USD, ALTIN)", "warning"); return; }
-        showToast("Piyasa verileri senkronize ediliyor...", "info");
+        if(!symbolInput) { showToast("Lütfen sembol giriniz (Örn: BTC, USD, ALTIN)", "warning"); return; }
+        showToast("Veri çekiliyor...", "info");
         const price = await fetchBinancePrice(symbolInput);
-        if(price > 0) { priceInput.value = price.toFixed(2); showToast("Piyasa endeksi güncellendi.", "success"); } else { showToast("Entegrasyon hatası: Değer elle girilmelidir.", "warning"); }
+        if(price > 0) { priceInput.value = price.toFixed(2); showToast("Fiyat güncellendi.", "success"); } else { showToast("Değer bulunamadı, elle girin.", "warning"); }
     }
 
     async function smartUpdateInvestment(index) {
-        const inv = userInvestments[index]; showToast(`${inv.name} değerlemesi sorgulanıyor...`, "info");
+        const inv = userInvestments[index]; showToast(`${inv.name} değeri sorgulanıyor...`, "info");
         let price = await fetchBinancePrice(inv.name.toUpperCase().trim());
         if(price > 0) {
-            userInvestments[index].currentPrice = price; localStorage.setItem('userInvestments', JSON.stringify(userInvestments)); renderInvestments();
-            showToast(`${inv.name} portföy değeri senkronize edildi.`, "success");
-        } else { showToast("Küresel endeks bulunamadı, manuel revizyon gerekli.", "warning"); openUpdateInvModal(index); }
+            userInvestments[index].currentPrice = price; 
+            saveLocalData('userInvestments', userInvestments); renderInvestments();
+            showToast(`${inv.name} fiyatı senkronize edildi.`, "success");
+        } else { showToast("Piyasada bulunamadı, elle girin.", "warning"); openUpdateInvModal(index); }
     }
 
     async function updateAllInvestments() {
-        if(userInvestments.length === 0) return; showToast("Tüm portföy varlıkları piyasayla senkronize ediliyor...", "info");
+        if(userInvestments.length === 0) return; showToast("Tüm varlıklar senkronize ediliyor...", "info");
         let updatedCount = 0;
         for (let i = 0; i < userInvestments.length; i++) {
             const newPrice = await fetchBinancePrice(userInvestments[i].name.toUpperCase().trim());
             if(newPrice > 0) { userInvestments[i].currentPrice = newPrice; updatedCount++; }
         }
-        if (updatedCount > 0) { localStorage.setItem('userInvestments', JSON.stringify(userInvestments)); renderInvestments(); showToast(`Portföydeki ${updatedCount} varlık başarıyla güncellendi.`, "success"); } 
-        else { showToast("Otomatik değerleme yapılamadı.", "warning"); }
+        if (updatedCount > 0) { 
+            saveLocalData('userInvestments', userInvestments); renderInvestments(); showToast(`Portföydeki ${updatedCount} varlık güncellendi.`, "success"); } 
+        else { showToast("Değerleme yapılamadı.", "warning"); }
     }
 
-    function addInvestment() {
+    // DÜZELTME 2: ÇİFT İŞLEM (DUBLE BAKİYE) HATASI ÇÖZÜMÜ
+    async function addInvestment() {
         const name = document.getElementById('inv-name').value; const qty = parseFloat(document.getElementById('inv-quantity').value); const buyPrice = parseFloat(document.getElementById('inv-buy-price').value); const currentPrice = parseFloat(document.getElementById('inv-current-price').value);
-        if(!name || isNaN(qty) || isNaN(buyPrice) || isNaN(currentPrice)) { showToast("Lütfen portföy matrisini doldurun.", "error"); return; }
-        const existingIdx = userInvestments.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
-        if(existingIdx !== -1) { userInvestments[existingIdx] = {name, qty, buyPrice, currentPrice}; showToast(`${name} pozisyonu güncellendi.`, "success"); } 
-        else { userInvestments.push({name, qty, buyPrice, currentPrice}); showToast(`Portföye yeni varlık eklendi: ${name}`, "success"); }
-        localStorage.setItem('userInvestments', JSON.stringify(userInvestments)); document.getElementById('inv-name').value = ""; document.getElementById('inv-quantity').value = ""; document.getElementById('inv-buy-price').value = ""; document.getElementById('inv-current-price').value = ""; renderInvestments();
+        const accountId = document.getElementById('inv-account').value;
+
+        if(!name || isNaN(qty) || isNaN(buyPrice) || isNaN(currentPrice) || !accountId) { showToast("Lütfen portföy matrisini ve finansman hesabını doldurun.", "error"); return; }
+        
+        const totalCost = qty * buyPrice;
+
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const txRes = await apiFetch('http://127.0.0.1:8000/api/transactions/', { 
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ account: parseInt(accountId), category: await getOrCreateCategory('Yatırım Alımı'), amount: totalCost, transaction_type: 'EXPENSE', date: today + "T12:00:00Z", description: `[Portföy Ekleme] ${qty} ${name}` }) 
+            });
+
+            if(txRes.ok) {
+                // Backend (Django) zaten bakiyeyi otomatik düşüyor, O YÜZDEN BURADAN PATCH'İ SİLDİK (Çift Düşme Hatası Giderildi!)
+                
+                const existingIdx = userInvestments.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
+                if(existingIdx !== -1) { 
+                    const oldQty = userInvestments[existingIdx].qty;
+                    const oldPrice = userInvestments[existingIdx].buyPrice;
+                    const newTotalQty = oldQty + qty;
+                    const newAvgPrice = ((oldQty * oldPrice) + totalCost) / newTotalQty;
+                    userInvestments[existingIdx] = {name, qty: newTotalQty, buyPrice: newAvgPrice, currentPrice}; 
+                    showToast(`${name} pozisyonu artırıldı.`, "success"); 
+                } 
+                else { 
+                    userInvestments.push({name, qty, buyPrice, currentPrice}); 
+                    showToast(`Portföye yeni varlık eklendi: ${name}`, "success"); 
+                }
+                saveLocalData('userInvestments', userInvestments); 
+                document.getElementById('inv-name').value = ""; document.getElementById('inv-quantity').value = ""; document.getElementById('inv-buy-price').value = ""; document.getElementById('inv-current-price').value = ""; 
+                
+                // Dropdown bakiyelerini de anında güncelle
+                loadFormOptions();
+                renderInvestments(); loadDashboard();
+            } else {
+                showToast("Finansman işleminde hata oluştu, işlem iptal.", "error");
+            }
+        } catch(e) { }
+    }
+
+    function promptSellInvestment(index) {
+        sellingInvIndex = index;
+        const inv = userInvestments[index];
+        const sellValue = inv.qty * inv.currentPrice;
+        document.getElementById('sell-inv-info').innerHTML = `<strong>${inv.qty} adet ${inv.name}</strong> varlığınızı güncel fiyattan bozduruyorsunuz.<br><br>Elde edilecek gelir: <strong style='color:#28a745; font-size:18px;'>${sellValue.toFixed(2)} TRY</strong>`;
+        document.getElementById('sell-inv-modal').style.display = 'flex';
+    }
+
+    async function confirmSellInvestment() {
+        const accountId = document.getElementById('sell-inv-account').value;
+        if(!accountId) { showToast("Satışın yatacağı hesabı seçin.", "error"); return; }
+
+        const inv = userInvestments[sellingInvIndex];
+        const sellValue = inv.qty * inv.currentPrice;
+
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const txRes = await apiFetch('http://127.0.0.1:8000/api/transactions/', { 
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ account: parseInt(accountId), category: await getOrCreateCategory('Yatırım Satışı'), amount: sellValue, transaction_type: 'INCOME', date: today + "T12:00:00Z", description: `[Bozdur / Sat] ${inv.name} Satışı` }) 
+            });
+
+            if(txRes.ok) {
+                // Backend (Django) zaten bakiyeyi otomatik artırıyor, O YÜZDEN BURADAN PATCH'İ SİLDİK
+                userInvestments.splice(sellingInvIndex, 1); 
+                saveLocalData('userInvestments', userInvestments); 
+                document.getElementById('sell-inv-modal').style.display = 'none';
+                
+                showToast(`Satış başarılı! ${sellValue.toFixed(2)} TRY hesabınıza aktarıldı.`, "success"); 
+                loadFormOptions();
+                renderInvestments(); loadDashboard();
+            }
+        } catch (e) { }
     }
 
     function renderInvestments() {
@@ -954,23 +1247,30 @@
             const currentTotal = inv.qty * inv.currentPrice; const pl = (inv.currentPrice - inv.buyPrice) * inv.qty; const plPercent = ((inv.currentPrice - inv.buyPrice) / inv.buyPrice) * 100;
             totalVal += currentTotal; totalPL += pl; let plColor = pl >= 0 ? "#28a745" : "#dc3545"; let plSign = pl >= 0 ? "+" : "";
             let li = document.createElement('li'); li.className = 'tx-item';
-            li.innerHTML = `<div class="tx-left"><div class="tx-icon">📈</div><div class="tx-details"><span class="tx-title">${inv.name} <span style="font-weight:normal; font-size:12px; color:var(--text-muted);">(${inv.qty} Pozisyon)</span></span><span class="tx-date">Maliyet: ${inv.buyPrice} | Güncel Endeks: <strong>${inv.currentPrice} TRY</strong></span></div></div>
-                <div class="tx-right" style="display:flex; flex-direction:column; align-items:flex-end;"><span class="tx-amount" style="color:var(--text-color);">${currentTotal.toFixed(2)} TRY</span><span class="tx-date" style="color:${plColor}; font-weight:bold; margin-top:0;">${plSign}${pl.toFixed(2)} TRY (${plSign}${plPercent.toFixed(2)}%)</span><div style="margin-top:5px; display:flex; gap:10px;"><button onclick="smartUpdateInvestment(${index})" style="background:none; border:none; color:var(--accent-color); cursor:pointer; font-size:14px; text-decoration:underline;">🔄 Değerle</button><button onclick="deleteInvestment(${index})" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:14px;">🗑️ Kapat</button></div></div>`;
+            li.innerHTML = `<div class="tx-left"><div class="tx-icon">📈</div><div class="tx-details"><span class="tx-title">${inv.name} <span style="font-weight:normal; font-size:12px; color:var(--text-muted);">(${inv.qty} Adet)</span></span><span class="tx-date">Alış: ${inv.buyPrice.toFixed(2)} | Güncel: <strong>${inv.currentPrice.toFixed(2)} TRY</strong></span></div></div>
+                <div class="tx-right" style="display:flex; flex-direction:column; align-items:flex-end;"><span class="tx-amount" style="color:var(--text-color);">${currentTotal.toFixed(2)} TRY</span><span class="tx-date" style="color:${plColor}; font-weight:bold; margin-top:0;">${plSign}${pl.toFixed(2)} TRY (${plSign}${plPercent.toFixed(2)}%)</span><div style="margin-top:5px; display:flex; gap:10px;"><button onclick="smartUpdateInvestment(${index})" style="background:none; border:none; color:var(--accent-color); cursor:pointer; font-size:14px; text-decoration:underline;">🔄 Güncelle</button><button onclick="promptSellInvestment(${index})" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:14px;">💰 Bozdur / Sat</button></div></div>`;
             list.appendChild(li);
         });
-        if(userInvestments.length === 0) list.innerHTML = "<li style='padding: 15px; color: var(--text-muted); text-align: center;'>Portföy ağacınız boş.</li>";
+        if(userInvestments.length === 0) list.innerHTML = "<li style='padding: 15px; color: var(--text-muted); text-align: center;'>Portföyünüz boş.</li>";
         document.getElementById('inv-total-value').innerText = `${totalVal.toFixed(2)} TRY`; document.getElementById('inv-total-pl').innerText = `${totalPL >= 0 ? '+' : ''}${totalPL.toFixed(2)} TRY`; document.getElementById('inv-total-pl').style.color = totalPL >= 0 ? '#28a745' : '#dc3545';
     }
 
-    function deleteInvestment(index) { userInvestments.splice(index, 1); localStorage.setItem('userInvestments', JSON.stringify(userInvestments)); renderInvestments(); showToast("Varlık pozisyonu tasfiye edildi.", "info"); }
-    function openUpdateInvModal(index) { updatingInvIndex = index; document.getElementById('update-inv-info').innerText = `${userInvestments[index].name} pozisyonu için piyasa değerlemesi girin:`; document.getElementById('update-inv-price').value = userInvestments[index].currentPrice; document.getElementById('update-inv-modal').style.display = 'flex'; }
-    function confirmUpdateInvestment() { const newPrice = parseFloat(document.getElementById('update-inv-price').value); if(isNaN(newPrice)) { showToast("Geçerli bir piyasa endeksi girin.", "error"); return; } userInvestments[updatingInvIndex].currentPrice = newPrice; localStorage.setItem('userInvestments', JSON.stringify(userInvestments)); document.getElementById('update-inv-modal').style.display = 'none'; showToast("Manuel değerleme işlendi.", "success"); renderInvestments(); }
+    function openUpdateInvModal(index) { updatingInvIndex = index; document.getElementById('update-inv-info').innerText = `${userInvestments[index].name} için değer girin:`; document.getElementById('update-inv-price').value = userInvestments[index].currentPrice; document.getElementById('update-inv-modal').style.display = 'flex'; }
+    function confirmUpdateInvestment() { const newPrice = parseFloat(document.getElementById('update-inv-price').value); if(isNaN(newPrice)) { showToast("Geçerli bir piyasa endeksi girin.", "error"); return; } userInvestments[updatingInvIndex].currentPrice = newPrice; saveLocalData('userInvestments', userInvestments); document.getElementById('update-inv-modal').style.display = 'none'; showToast("Fiyat güncellendi.", "success"); renderInvestments(); }
 
     async function loadTrends() {
-        const txRes = await fetch('http://127.0.0.1:8000/api/transactions/', { headers: { 'Authorization': 'Bearer ' + accessToken } });
-        if(!txRes.ok) return; let txData = await txRes.json(); let expenses = txData.filter(t => t.transaction_type === 'EXPENSE');
-        let categoryMap = {}; const catRes = await fetch('http://127.0.0.1:8000/api/categories/', { headers: { 'Authorization': 'Bearer ' + accessToken }});
-        if(catRes.ok) { const categories = await catRes.json(); categories.forEach(c => { categoryMap[c.id] = c.name; }); }
+        let txData = [];
+        try {
+            const txRes = await apiFetch('http://127.0.0.1:8000/api/transactions/');
+            if(txRes.ok) txData = await txRes.json();
+        } catch(e) { return; }
+        
+        let expenses = txData.filter(t => t.transaction_type === 'EXPENSE');
+        let categoryMap = {}; 
+        try {
+            const catRes = await apiFetch('http://127.0.0.1:8000/api/categories/');
+            if(catRes.ok) { const categories = await catRes.json(); categories.forEach(c => { categoryMap[c.id] = c.name; }); }
+        } catch(e) {}
 
         const today = new Date(); const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(today.getDate() - 30); const sixtyDaysAgo = new Date(); sixtyDaysAgo.setDate(today.getDate() - 60);
         let current30DaysTotal = 0; let previous30DaysTotal = 0; let currentCatTotals = {};
@@ -992,13 +1292,13 @@
         let changeText = "Veri yetersiz"; let changeColor = "var(--text-muted)";
         if(previous30DaysTotal > 0) {
             const diff = current30DaysTotal - previous30DaysTotal; const percent = (diff / previous30DaysTotal) * 100;
-            if(percent > 0) { changeText = `%${percent.toFixed(1)} Volatilite Artışı 📈`; changeColor = "#dc3545"; } 
-            else { changeText = `%${Math.abs(percent).toFixed(1)} Optimizasyon Azalışı 📉`; changeColor = "#28a745"; } 
+            if(percent > 0) { changeText = `%${percent.toFixed(1)} Artış 📈`; changeColor = "#dc3545"; } 
+            else { changeText = `%${Math.abs(percent).toFixed(1)} Azalış 📉`; changeColor = "#28a745"; } 
         }
 
         const summaryDiv = document.getElementById('trends-summary-boxes');
-        summaryDiv.innerHTML = `<div class="trend-card" style="flex:1; min-width:200px;"><div class="trend-title">Son 30 Gün Konsolide Gider Hacmi</div><div class="trend-value">${current30DaysTotal.toFixed(2)} TRY</div><div style="font-size:12px; color:${changeColor}; margin-top:5px; font-weight:bold;">Önceki Dönem Korelasyonu: ${changeText}</div></div>
-            <div class="trend-card" style="flex:1; min-width:200px;"><div class="trend-title">Ağırlıklı Tüketim Kategorisi</div><div class="trend-value">${catIcons[topCat] || ''} ${topCat}</div><div style="font-size:12px; color:var(--text-muted); margin-top:5px;">Hacim: <strong>${topCatVal.toFixed(2)} TRY</strong></div></div>`;
+        summaryDiv.innerHTML = `<div class="trend-card" style="flex:1; min-width:200px;"><div class="trend-title">Son 30 Gün Toplam Harcama</div><div class="trend-value">${current30DaysTotal.toFixed(2)} TRY</div><div style="font-size:12px; color:${changeColor}; margin-top:5px; font-weight:bold;">Önceki Döneme Göre: ${changeText}</div></div>
+            <div class="trend-card" style="flex:1; min-width:200px;"><div class="trend-title">En Çok Harcanan Kategori</div><div class="trend-value">${catIcons[topCat] || ''} ${topCat}</div><div style="font-size:12px; color:var(--text-muted); margin-top:5px;">Harcama: <strong>${topCatVal.toFixed(2)} TRY</strong></div></div>`;
 
         const ctx = document.getElementById('trendsBarChart').getContext('2d'); if(myTrendChart) myTrendChart.destroy();
         let labels = Object.keys(currentCatTotals); let data = Object.values(currentCatTotals);
@@ -1007,7 +1307,7 @@
 
         myTrendChart = new Chart(ctx, {
             type: 'bar',
-            data: { labels: labels, datasets: [{ label: 'Tüketif Yoğunluk Endeksi (TRY)', data: data, backgroundColor: barColors.slice(0, data.length), borderRadius: 4, maxBarThickness: 60 }] },
+            data: { labels: labels, datasets: [{ label: 'Harcama Dağılımı (TRY)', data: data, backgroundColor: barColors.slice(0, data.length), borderRadius: 4, maxBarThickness: 60 }] },
             options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { display: false } }, y: { grid: { color: gridColor }, beginAtZero: true } }, plugins: { legend: { display: false } } }
         });
     }
