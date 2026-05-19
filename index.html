@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kişisel Finans ve Bütçe Takibi</title>
+    <title>Kişisel Finans ve Varlık Yönetim Portalı</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         /* --- GENEL, KOYU MOD VE DİNAMİK VURGU (ACCENT) STİLLERİ --- */
@@ -190,7 +190,7 @@
                 <h4>Toplam Gider</h4><span id="stat-expense" class="theme-text">0 TRY</span>
             </div>
             <div class="stat-box theme-bordered" id="stat-box-balance">
-                <h4>Toplam Bakiye</h4>
+                <h4>Toplam Bakiye <span onclick="editBalance()" style="cursor:pointer; margin-left: 8px; font-size:16px;" title="Bakiyeyi El İle Düzenle">✏️</span></h4>
                 <span id="current-balance" class="theme-text">0 TRY</span>
             </div>
             <div class="stat-box theme-bordered">
@@ -294,7 +294,7 @@
 
     <div id="bills-page" class="page-section card">
         <h2 style="border-left: 4px solid var(--accent-color); padding-left: 10px;">📅 Otomatik Ödemeler</h2>
-        <p>Faturalarınız sıraya alınır. Günü (Vadesi) gelen faturalar için bakiye kontrolü yapılır ve bakiye yeterliyse otomatik ödenir.</p>
+        <p>Faturalarınız eklenme sırasına göre kuyruğa alınır. Vadesi (Son Ödeme Tarihi) gelen faturalar için bakiye kontrolü yapılır ve otomatik ödenir.</p>
         <div class="form-group" style="background-color: var(--stat-bg); padding: 15px; border-radius: 8px; border: 1px dashed var(--chart-border);">
             <h4 style="margin-top: 0;">Yeni Fatura Ekle</h4>
             <input type="text" id="bill-name" placeholder="Fatura Adı (Örn: Elektrik, İnternet)">
@@ -378,8 +378,6 @@
     let currentUser = localStorage.getItem('currentUser') || ""; 
     let authState = 'login'; 
     let myLineChart = null; let myPieChart = null; let myTrendChart = null;
-    
-    let mockPasswords = JSON.parse(localStorage.getItem('mockPasswords')) || {};
 
     const expenseTreeCategories = {
         'Barınma': ['Kira', 'Aidat', 'Ev Eşyası', 'Tadilat'],
@@ -433,21 +431,25 @@
         localStorage.setItem(currentUser + '_' + key, JSON.stringify(data));
     }
 
-    // --- YENİ: GÜVENLİ API İSTEK FONKSİYONU (TOKEN KONTROLÜ) ---
+    // YENİ: GÜVENLİ VE KİLİTLİ API İSTEK FONKSİYONU (Sonsuz Döngüyü Önler)
+    let isLoggingOut = false;
     async function apiFetch(url, options = {}) {
         if (!options.headers) options.headers = {};
         if (accessToken) options.headers['Authorization'] = 'Bearer ' + accessToken;
 
         try {
             const response = await fetch(url, options);
+            // Eğer token geçersizse ve çıkış işlemi henüz başlamadıysa tetikle
             if (response.status === 401) {
-                showToast("Oturum süreniz doldu, lütfen tekrar giriş yapın.", "error");
-                logout();
+                if(!isLoggingOut) {
+                    isLoggingOut = true;
+                    showToast("Oturum süreniz doldu, lütfen tekrar giriş yapın.", "error");
+                    setTimeout(() => { logout(); isLoggingOut = false; }, 2000);
+                }
                 throw new Error("Token expired");
             }
             return response;
         } catch (e) {
-            console.error("API Fetch Error:", e);
             throw e;
         }
     }
@@ -544,16 +546,28 @@
         const u = document.getElementById('username').value;
         const p = document.getElementById('password').value;
 
+        // --- GERÇEK API TABANLI ŞİFRE SIFIRLAMA ---
         if (authState === 'reset') {
             const pConf = document.getElementById('password-confirm').value;
             if (p !== pConf) { document.getElementById('auth-msg').innerText = "Hata: Şifreler eşleşmiyor!"; return; }
             if (p.length < 4) { document.getElementById('auth-msg').innerText = "Hata: Şifre çok kısa!"; return; }
             
-            mockPasswords[u] = p; 
-            localStorage.setItem('mockPasswords', JSON.stringify(mockPasswords));
+            try {
+                // Not: Django tarafında /api/reset-password/ ucu (endpoint) yazılmış olmalıdır.
+                const res = await fetch('http://127.0.0.1:8000/api/reset-password/', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, new_password: p })
+                });
 
-            showToast("Şifreniz güncellendi! Lütfen giriş yapın.", "success");
-            setAuthState('login');
+                if (res.ok) {
+                    showToast("Şifreniz başarıyla güncellendi! Yeni şifrenizle giriş yapın.", "success");
+                    setAuthState('login');
+                } else {
+                    document.getElementById('auth-msg').innerText = "API Hatası: Backend şifre sıfırlama servisi yanıt vermedi.";
+                }
+            } catch(e) {
+                document.getElementById('auth-msg').innerText = "Sunucuya bağlanılamadı.";
+            }
             return;
         }
 
@@ -568,22 +582,11 @@
         }
 
         if (authState === 'login') {
-            let actualPasswordToUse = p;
-            if(mockPasswords[u]) {
-                if (p === mockPasswords[u]) {
-                    showToast("Yeni (Mock) şifreyle giriş doğrulandı.", "info");
-                    actualPasswordToUse = "ESKI_SIFREN_APIYE_GIDECEK"; 
-                } else {
-                    document.getElementById('auth-msg').innerText = "Hatalı şifre (Sıfırladığınız şifreyi girin)."; return;
-                }
-            }
-
             try {
                 const res = await fetch('http://127.0.0.1:8000/api/token/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
-                if(res.ok || mockPasswords[u] === p) { 
-                    let data = {};
-                    if(res.ok) { data = await res.json(); }
-                    accessToken = data.access || "mock_token";
+                if(res.ok) { 
+                    let data = await res.json();
+                    accessToken = data.access;
                     
                     currentUser = u;
                     localStorage.setItem('currentUser', currentUser);
@@ -592,11 +595,6 @@
                     document.getElementById('auth-section').style.display = 'none'; document.getElementById('portal-menu').style.display = 'flex';
                     showToast(`Hoş geldiniz, ${u}!`, "success"); 
                     showPage('dashboard-page', document.querySelectorAll('.menu-btn')[0]);
-                    
-                    // Tarih ayarlarını bugüne sabitle (Geleceğe gideri engellemek için)
-                    setDefaultDates();
-
-                    loadFormOptions(); renderQueue(); renderGoalChain(); renderInvestments();
                 } else { document.getElementById('auth-msg').innerText = "Hatalı kullanıcı adı veya şifre!"; }
             } catch (e) { document.getElementById('auth-msg').innerText = "Sunucu bağlantı hatası."; }
         }
@@ -610,17 +608,21 @@
         showToast("Güvenli bir şekilde çıkış yapıldı.", "info");
     }
 
-    // YENİ: TARİH KUTUCUKLARINI OTOMATİK DOLDURAN VE SINIRLAYAN FONKSİYON
+    // YENİ: TARİH KISITLAMALARI (Geçmiş yasak, Bugün ve Gelecek serbest)
     function setDefaultDates() {
         const today = new Date().toISOString().split('T')[0];
         const transDate = document.getElementById('trans-date');
         const billDate = document.getElementById('bill-date');
+        
         if(transDate) {
             transDate.value = today;
-            transDate.max = today; // Giderleri geleceğe eklemeyi engelle
+            transDate.min = today; // Geçmişi engeller
+            transDate.removeAttribute('max'); // Geleceğe izin verir
         }
         if(billDate) {
             billDate.value = today;
+            billDate.min = today; // Faturaların da geçmişe eklenmesini engeller
+            billDate.removeAttribute('max');
         }
     }
 
@@ -628,8 +630,8 @@
         document.querySelectorAll('.page-section').forEach(p => p.style.display = 'none'); document.getElementById(pageId).style.display = 'block';
         document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active')); btnElement.classList.add('active');
         
-        setDefaultDates(); // Her sayfa açılışında tarihleri kontrol et
-        
+        setDefaultDates(); // Sayfa değiştikçe tarih kısıtlamalarını uygula
+
         if (pageId === 'dashboard-page') loadDashboard(); 
         if (pageId === 'add-data-page') loadFormOptions(); 
         if (pageId === 'targets-page') { loadFormOptions(); renderGoalChain(); } 
@@ -644,16 +646,14 @@
         if (undoStack.length === 0) return; const tx = undoStack.pop(); updateUndoButton();
         try {
             const res = await apiFetch('http://127.0.0.1:8000/api/transactions/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account: tx.account, category: tx.category, amount: parseFloat(tx.amount), transaction_type: tx.transaction_type, date: tx.date, description: tx.description }) });
-            if(res.ok) {
-                showToast("Kayıt işlemi başarıyla geri alındı.", "success"); loadDashboard(); processQueue();
-            } else { showToast("Geri alma işlemi başarısız.", "error"); }
-        } catch(e){}
+            if(res.ok) { showToast("Kayıt işlemi başarıyla geri alındı.", "success"); loadDashboard(); processQueue(); } 
+            else { showToast("Geri alma işlemi başarısız.", "error"); }
+        } catch(e) {}
     }
 
     async function deleteTx(id) {
         const txToUndo = currentTxData.find(t => t.id === id); if(!txToUndo) return;
         if(!confirm("Bu kaydı silmek istediğinize emin misiniz?")) return;
-        
         try {
             const res = await apiFetch(`http://127.0.0.1:8000/api/transactions/${id}/`, { method: 'DELETE' });
             if(res.ok) { 
@@ -667,23 +667,30 @@
         const selectedAccountId = document.getElementById('dashboard-account-filter').value;
         let msg = selectedAccountId ? "Seçili hesaba ait tüm işlem geçmişi kalıcı olarak silinecektir. Emin misiniz?" : "Sistemdeki tüm finansal geçmiş kalıcı olarak silinecektir. Emin misiniz?";
         if(!confirm(msg + "\n\nBu işlem geri alınamaz!")) return;
-        
-        // YENİ: Backend silince bakiyeyi otomatik güncelleyeceği için sadece işlemleri siliyoruz.
-        showToast("Veritabanı güncelleniyor, lütfen bekleyin...", "warning");
+        showToast("Veritabanı temizleniyor, lütfen bekleyin...", "warning");
         try {
             const txRes = await apiFetch('http://127.0.0.1:8000/api/transactions/'); 
-            if(txRes.ok){
+            if(txRes.ok) {
                 let txData = await txRes.json();
                 if (selectedAccountId) { txData = txData.filter(t => t.account == selectedAccountId); }
                 if(txData.length === 0) { showToast("Silinecek kayıt bulunamadı.", "info"); return; }
-                
-                for(let t of txData) { 
-                    await apiFetch(`http://127.0.0.1:8000/api/transactions/${t.id}/`, { method: 'DELETE' }); 
-                }
+                for(let t of txData) { await apiFetch(`http://127.0.0.1:8000/api/transactions/${t.id}/`, { method: 'DELETE' }); }
                 undoStack = []; updateUndoButton();
                 showToast("Mevcut veri geçmişi başarıyla temizlendi.", "success"); loadFormOptions(); loadDashboard();
             }
-        } catch(e) { }
+        } catch(e) { showToast("İşlem sırasında hata oluştu.", "error"); }
+    }
+
+    async function editBalance() {
+        const selectedAccountId = document.getElementById('dashboard-account-filter').value;
+        if(!selectedAccountId) { showToast("Bakiye revizyonu için lütfen yukarıdan bir hesap seçimi yapın.", "warning"); return; }
+        let newBal = prompt("Lütfen bu hesap için güncel bakiyeyi girin:");
+        if(newBal === null || newBal.trim() === "" || isNaN(parseFloat(newBal))) return;
+        try {
+            const res = await apiFetch(`http://127.0.0.1:8000/api/accounts/${selectedAccountId}/`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: parseFloat(newBal) }) });
+            if(res.ok) { showToast("Hesap bakiyesi güncellendi.", "success"); loadDashboard(); processQueue(); } 
+            else { showToast("Güncelleme başarısız.", "error"); }
+        } catch(e) { showToast("Sunucu hatası.", "error"); }
     }
 
     async function addAccount() {
@@ -691,8 +698,9 @@
         if(!name) { showToast("Hesap tanımlama için bir isim girilmesi zorunludur.", "error"); return; }
         try {
             const res = await apiFetch('http://127.0.0.1:8000/api/accounts/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, currency: currency, balance: balance }) });
-            if(res.ok) { showToast(`Portföye yeni hesap eklendi: ${name}`, "success"); document.getElementById('acc-name').value = ""; document.getElementById('acc-balance').value = ""; loadFormOptions(); } else { showToast("Hesap oluşturulamadı.", "error"); }
-        } catch(e) {}
+            if(res.ok) { showToast(`Portföye yeni hesap eklendi: ${name}`, "success"); document.getElementById('acc-name').value = ""; document.getElementById('acc-balance').value = ""; loadFormOptions(); } 
+            else { showToast("Hesap oluşturulamadı.", "error"); }
+        } catch(e) { showToast("Sunucu hatası.", "error"); }
     }
 
     async function getOrCreateCategory(categoryName) {
@@ -722,16 +730,13 @@
         let catToSend = await getOrCreateCategory(subCatString);
 
         try {
-            // YENİ: Backend'e işlemi yolluyoruz. Backend'in kendi içerisinde bakiyeyi otomatik düştüğünü / artırdığını varsayıyoruz. (Kullanıcının bahsettiği çift işlem hatası çözümü)
+            // SADECE POST İŞLEMİ YAPILIR (Backend bakiye güncellemesini halleder)
             const res = await apiFetch('http://127.0.0.1:8000/api/transactions/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account: parseInt(account_id), category: catToSend, amount: parseFloat(amount), transaction_type: type, date: date + "T12:00:00Z", description: desc }) });
             if(res.ok) { 
-                if(type === 'INCOME') {
-                    showToast("Gelir eklendi.", "success"); processQueue(); 
-                } else {
-                    showToast("Gider eklendi.", "info");
-                }
+                if(type === 'INCOME') { showToast("Gelir eklendi.", "success"); processQueue(); } 
+                else { showToast("Gider eklendi.", "info"); }
                 document.getElementById('trans-amount').value = ""; document.getElementById('trans-desc').value = ""; loadFormOptions(); 
-            } else { const err = await res.json(); showToast(`Kayıt hatası: ${JSON.stringify(err)}`, "error"); }
+            } else { const err = await res.json(); showToast(`Kayıt hatası: İşlem doğrulanamadı.`, "error"); }
         } catch(e) {}
     }
 
@@ -782,7 +787,7 @@
                 else { node.saved += remainingAmount; remainingAmount = 0; }
             }
         }
-        if(anyFunded) { saveLocalData('goalChain', goalChain); document.getElementById('goal-fund').value = ""; renderGoalChain(); showToast("Para hedeflere dağıtıldı.", "info"); } 
+        if(anyFunded) { saveLocalData('goalChain', goalChain); document.getElementById('goal-fund').value = ""; renderGoalChain(); showToast("Para hedeflere Kar Topu mantığıyla dağıtıldı.", "info"); } 
         else { showToast("Tüm hedefler başarıyla fonlanmış.", "warning"); }
     }
 
@@ -811,7 +816,7 @@
             }
 
             if(list && document.getElementById('targets-page').style.display === 'block') {
-                if(index === 0) list.innerHTML = ""; // İlk elemanda temizle
+                if(index === 0) list.innerHTML = "";
                 let li = document.createElement('li'); li.className = `tx-item ${node.isCompleted ? 'goal-completed' : ''}`;
                 li.innerHTML = `<div class="tx-left"><div class="tx-icon">${statusIcon}</div><div class="tx-details"><span class="tx-title" style="${node.isCompleted ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">${node.name}</span><span class="tx-date">Biriken: ${node.saved.toFixed(2)} TRY</span></div></div>
                     <div class="tx-right" style="display:flex; flex-direction:column; align-items:flex-end;"><span class="tx-amount" style="color:${barColor};">${node.target} TRY</span><div class="progress-container" style="width: 100px; height: 6px; margin-top: 5px;"><div class="progress-bar" style="width:${percentage}%; background-color:${barColor};"></div></div><button onclick="removeGoalNode(${index})" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:14px; margin-top:5px;">🗑️ Çıkar</button></div>`;
@@ -857,7 +862,6 @@
 
     function dequeueBill(index) { paymentQueue.splice(index, 1); saveLocalData('paymentQueue', paymentQueue); renderQueue(); showToast("Talimat iptal edildi.", "info"); }
 
-    // DÜZELTME 1: VADE TARİHİNE GÖRE İŞLEYEN QUEUE (AKILLI KONTROL)
     async function processQueue() {
         if(paymentQueue.length === 0) return; paymentQueue.sort((a,b) => new Date(a.date) - new Date(b.date));
         let i = 0; let queueProcessed = false;
@@ -868,23 +872,19 @@
         while (i < paymentQueue.length) {
             let currentBill = paymentQueue[i]; 
             
-            // Eğer faturanın son ödeme tarihi BUGÜNDEN BÜYÜKSE (Yani günü gelmediyse) işlemi atla
-            if (currentBill.date > todayStr) { 
-                break; // FIFO olduğu için diğerleri de ileriki tarihtir, döngüyü kır.
-            }
+            if (currentBill.date > todayStr) { break; }
 
             try {
                 const accRes = await apiFetch(`http://127.0.0.1:8000/api/accounts/${currentBill.accountId}/`);
                 if (accRes.ok) { 
                     const acc = await accRes.json(); let balance = parseFloat(acc.balance);
-                    // Bakiye yetiyorsa
                     if (balance >= currentBill.amount) {
                         const txRes = await apiFetch('http://127.0.0.1:8000/api/transactions/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account: currentBill.accountId, category: null, amount: currentBill.amount, transaction_type: 'EXPENSE', date: todayStr + "T12:00:00Z", description: `[Otomatik Ödendi] ${currentBill.name}` }) });
                         if(txRes.ok) {
                             showToast(`Otomatik Ödeme: '${currentBill.name}' tahsil edildi.`, "success");
                             paymentQueue.shift(); saveLocalData('paymentQueue', paymentQueue); queueProcessed = true;
                         } else { break; } 
-                    } else { break; } // Bakiye yoksa bekle
+                    } else { break; } 
                 } else { break; }
             } catch(e) { break; }
         }
@@ -918,7 +918,7 @@
                 const filterSelect = document.getElementById('dashboard-account-filter'); let currentFilter = ""; if(filterSelect) { currentFilter = filterSelect.value; filterSelect.innerHTML = "<option value=''>🌍 Tüm Hesaplar</option>"; }
                 const billAccSelect = document.getElementById('bill-account'); if(billAccSelect) billAccSelect.innerHTML = accounts.length > 0 ? "" : "<option value='' disabled selected>Hesap bulunamadı...</option>";
                 
-                const invAccSelect = document.getElementById('inv-account'); if(invAccSelect) invAccSelect.innerHTML = accounts.length > 0 ? "<option value='' disabled selected>Varlığın Satın Alınacağı Hesap Seçin...</option>" : "<option value='' disabled selected>Önce hesap açın.</option>";
+                const invAccSelect = document.getElementById('inv-account'); if(invAccSelect) invAccSelect.innerHTML = accounts.length > 0 ? "<option value='' disabled selected>Satın Alma İçin Hesap Seçin (Bakiyeden Düşülecek)</option>" : "<option value='' disabled selected>Önce hesap açın.</option>";
                 const sellAccSelect = document.getElementById('sell-inv-account'); if(sellAccSelect) sellAccSelect.innerHTML = accounts.length > 0 ? "<option value='' disabled selected>Satış geliri hangi hesaba yatsın?</option>" : "<option value='' disabled selected>Hesap yok.</option>";
 
                 accounts.forEach(a => { 
@@ -1134,35 +1134,35 @@
 
     async function getLivePrice() {
         const symbolInput = document.getElementById('inv-name').value.toUpperCase().trim(); const priceInput = document.getElementById('inv-current-price');
-        if(!symbolInput) { showToast("Lütfen sembol giriniz (Örn: BTC, USD, ALTIN)", "warning"); return; }
-        showToast("Veri çekiliyor...", "info");
+        if(!symbolInput) { showToast("Lütfen piyasa kodu giriniz (Örn: BTC, USD, ALTIN)", "warning"); return; }
+        showToast("Piyasa verileri senkronize ediliyor...", "info");
         const price = await fetchBinancePrice(symbolInput);
-        if(price > 0) { priceInput.value = price.toFixed(2); showToast("Fiyat güncellendi.", "success"); } else { showToast("Değer bulunamadı, elle girin.", "warning"); }
+        if(price > 0) { priceInput.value = price.toFixed(2); showToast("Piyasa endeksi güncellendi.", "success"); } else { showToast("Entegrasyon hatası: Değer elle girilmelidir.", "warning"); }
     }
 
     async function smartUpdateInvestment(index) {
-        const inv = userInvestments[index]; showToast(`${inv.name} değeri sorgulanıyor...`, "info");
+        const inv = userInvestments[index]; showToast(`${inv.name} değerlemesi sorgulanıyor...`, "info");
         let price = await fetchBinancePrice(inv.name.toUpperCase().trim());
         if(price > 0) {
             userInvestments[index].currentPrice = price; 
             saveLocalData('userInvestments', userInvestments); renderInvestments();
-            showToast(`${inv.name} fiyatı senkronize edildi.`, "success");
-        } else { showToast("Piyasada bulunamadı, elle girin.", "warning"); openUpdateInvModal(index); }
+            showToast(`${inv.name} portföy değeri senkronize edildi.`, "success");
+        } else { showToast("Küresel endeks bulunamadı, manuel revizyon gerekli.", "warning"); openUpdateInvModal(index); }
     }
 
     async function updateAllInvestments() {
-        if(userInvestments.length === 0) return; showToast("Tüm varlıklar senkronize ediliyor...", "info");
+        if(userInvestments.length === 0) return; showToast("Tüm portföy varlıkları piyasayla senkronize ediliyor...", "info");
         let updatedCount = 0;
         for (let i = 0; i < userInvestments.length; i++) {
             const newPrice = await fetchBinancePrice(userInvestments[i].name.toUpperCase().trim());
             if(newPrice > 0) { userInvestments[i].currentPrice = newPrice; updatedCount++; }
         }
         if (updatedCount > 0) { 
-            saveLocalData('userInvestments', userInvestments); renderInvestments(); showToast(`Portföydeki ${updatedCount} varlık güncellendi.`, "success"); } 
-        else { showToast("Değerleme yapılamadı.", "warning"); }
+            saveLocalData('userInvestments', userInvestments); renderInvestments(); showToast(`Portföydeki ${updatedCount} varlık başarıyla güncellendi.`, "success"); } 
+        else { showToast("Otomatik değerleme yapılamadı.", "warning"); }
     }
 
-    // DÜZELTME 2: ÇİFT İŞLEM (DUBLE BAKİYE) HATASI ÇÖZÜMÜ
+    // DÜZELTME: SADECE API'YE HARCAMA GÖNDERİLİYOR (ÇİFT BAKİYE DÜŞME ENGELLENDİ)
     async function addInvestment() {
         const name = document.getElementById('inv-name').value; const qty = parseFloat(document.getElementById('inv-quantity').value); const buyPrice = parseFloat(document.getElementById('inv-buy-price').value); const currentPrice = parseFloat(document.getElementById('inv-current-price').value);
         const accountId = document.getElementById('inv-account').value;
@@ -1179,31 +1179,27 @@
             });
 
             if(txRes.ok) {
-                // Backend (Django) zaten bakiyeyi otomatik düşüyor, O YÜZDEN BURADAN PATCH'İ SİLDİK (Çift Düşme Hatası Giderildi!)
-                
                 const existingIdx = userInvestments.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
                 if(existingIdx !== -1) { 
                     const oldQty = userInvestments[existingIdx].qty;
                     const oldPrice = userInvestments[existingIdx].buyPrice;
                     const newTotalQty = oldQty + qty;
                     const newAvgPrice = ((oldQty * oldPrice) + totalCost) / newTotalQty;
+
                     userInvestments[existingIdx] = {name, qty: newTotalQty, buyPrice: newAvgPrice, currentPrice}; 
-                    showToast(`${name} pozisyonu artırıldı.`, "success"); 
+                    showToast(`${name} pozisyonu maliyetlenerek artırıldı.`, "success"); 
                 } 
                 else { 
                     userInvestments.push({name, qty, buyPrice, currentPrice}); 
-                    showToast(`Portföye yeni varlık eklendi: ${name}`, "success"); 
+                    showToast(`Portföye yeni varlık eklendi: ${name} (${totalCost} TRY)`, "success"); 
                 }
                 saveLocalData('userInvestments', userInvestments); 
                 document.getElementById('inv-name').value = ""; document.getElementById('inv-quantity').value = ""; document.getElementById('inv-buy-price').value = ""; document.getElementById('inv-current-price').value = ""; 
-                
-                // Dropdown bakiyelerini de anında güncelle
-                loadFormOptions();
-                renderInvestments(); loadDashboard();
+                loadFormOptions(); renderInvestments(); loadDashboard();
             } else {
-                showToast("Finansman işleminde hata oluştu, işlem iptal.", "error");
+                showToast("Finansman hesabından işlem yapılamadı, işlem iptal.", "error");
             }
-        } catch(e) { }
+        } catch(e) { showToast("Sistem bağlantı hatası.", "error"); }
     }
 
     function promptSellInvestment(index) {
@@ -1225,20 +1221,18 @@
             const today = new Date().toISOString().split('T')[0];
             const txRes = await apiFetch('http://127.0.0.1:8000/api/transactions/', { 
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ account: parseInt(accountId), category: await getOrCreateCategory('Yatırım Satışı'), amount: sellValue, transaction_type: 'INCOME', date: today + "T12:00:00Z", description: `[Bozdur / Sat] ${inv.name} Satışı` }) 
+                body: JSON.stringify({ account: parseInt(accountId), category: await getOrCreateCategory('Yatırım Satışı'), amount: sellValue, transaction_type: 'INCOME', date: today + "T12:00:00Z", description: `[Pozisyon Kapatma] ${inv.name} Satışı` }) 
             });
 
             if(txRes.ok) {
-                // Backend (Django) zaten bakiyeyi otomatik artırıyor, O YÜZDEN BURADAN PATCH'İ SİLDİK
                 userInvestments.splice(sellingInvIndex, 1); 
                 saveLocalData('userInvestments', userInvestments); 
                 document.getElementById('sell-inv-modal').style.display = 'none';
                 
                 showToast(`Satış başarılı! ${sellValue.toFixed(2)} TRY hesabınıza aktarıldı.`, "success"); 
-                loadFormOptions();
-                renderInvestments(); loadDashboard();
+                loadFormOptions(); renderInvestments(); loadDashboard();
             }
-        } catch (e) { }
+        } catch (e) { showToast("Satış işlemi ağ hatası nedeniyle gerçekleşemedi.", "error"); }
     }
 
     function renderInvestments() {
@@ -1248,15 +1242,15 @@
             totalVal += currentTotal; totalPL += pl; let plColor = pl >= 0 ? "#28a745" : "#dc3545"; let plSign = pl >= 0 ? "+" : "";
             let li = document.createElement('li'); li.className = 'tx-item';
             li.innerHTML = `<div class="tx-left"><div class="tx-icon">📈</div><div class="tx-details"><span class="tx-title">${inv.name} <span style="font-weight:normal; font-size:12px; color:var(--text-muted);">(${inv.qty} Adet)</span></span><span class="tx-date">Alış: ${inv.buyPrice.toFixed(2)} | Güncel: <strong>${inv.currentPrice.toFixed(2)} TRY</strong></span></div></div>
-                <div class="tx-right" style="display:flex; flex-direction:column; align-items:flex-end;"><span class="tx-amount" style="color:var(--text-color);">${currentTotal.toFixed(2)} TRY</span><span class="tx-date" style="color:${plColor}; font-weight:bold; margin-top:0;">${plSign}${pl.toFixed(2)} TRY (${plSign}${plPercent.toFixed(2)}%)</span><div style="margin-top:5px; display:flex; gap:10px;"><button onclick="smartUpdateInvestment(${index})" style="background:none; border:none; color:var(--accent-color); cursor:pointer; font-size:14px; text-decoration:underline;">🔄 Güncelle</button><button onclick="promptSellInvestment(${index})" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:14px;">💰 Bozdur / Sat</button></div></div>`;
+                <div class="tx-right" style="display:flex; flex-direction:column; align-items:flex-end;"><span class="tx-amount" style="color:var(--text-color);">${currentTotal.toFixed(2)} TRY</span><span class="tx-date" style="color:${plColor}; font-weight:bold; margin-top:0;">${plSign}${pl.toFixed(2)} TRY (${plSign}${plPercent.toFixed(2)}%)</span><div style="margin-top:5px; display:flex; gap:10px;"><button onclick="smartUpdateInvestment(${index})" style="background:none; border:none; color:var(--accent-color); cursor:pointer; font-size:14px; text-decoration:underline;">🔄 Değerle</button><button onclick="promptSellInvestment(${index})" style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:14px;">💰 Bozdur / Sat</button></div></div>`;
             list.appendChild(li);
         });
-        if(userInvestments.length === 0) list.innerHTML = "<li style='padding: 15px; color: var(--text-muted); text-align: center;'>Portföyünüz boş.</li>";
+        if(userInvestments.length === 0) list.innerHTML = "<li style='padding: 15px; color: var(--text-muted); text-align: center;'>Portföy ağacınız boş.</li>";
         document.getElementById('inv-total-value').innerText = `${totalVal.toFixed(2)} TRY`; document.getElementById('inv-total-pl').innerText = `${totalPL >= 0 ? '+' : ''}${totalPL.toFixed(2)} TRY`; document.getElementById('inv-total-pl').style.color = totalPL >= 0 ? '#28a745' : '#dc3545';
     }
 
-    function openUpdateInvModal(index) { updatingInvIndex = index; document.getElementById('update-inv-info').innerText = `${userInvestments[index].name} için değer girin:`; document.getElementById('update-inv-price').value = userInvestments[index].currentPrice; document.getElementById('update-inv-modal').style.display = 'flex'; }
-    function confirmUpdateInvestment() { const newPrice = parseFloat(document.getElementById('update-inv-price').value); if(isNaN(newPrice)) { showToast("Geçerli bir piyasa endeksi girin.", "error"); return; } userInvestments[updatingInvIndex].currentPrice = newPrice; saveLocalData('userInvestments', userInvestments); document.getElementById('update-inv-modal').style.display = 'none'; showToast("Fiyat güncellendi.", "success"); renderInvestments(); }
+    function openUpdateInvModal(index) { updatingInvIndex = index; document.getElementById('update-inv-info').innerText = `${userInvestments[index].name} pozisyonu için piyasa değerlemesi girin:`; document.getElementById('update-inv-price').value = userInvestments[index].currentPrice; document.getElementById('update-inv-modal').style.display = 'flex'; }
+    function confirmUpdateInvestment() { const newPrice = parseFloat(document.getElementById('update-inv-price').value); if(isNaN(newPrice)) { showToast("Geçerli bir piyasa endeksi girin.", "error"); return; } userInvestments[updatingInvIndex].currentPrice = newPrice; saveLocalData('userInvestments', userInvestments); document.getElementById('update-inv-modal').style.display = 'none'; showToast("Manuel değerleme işlendi.", "success"); renderInvestments(); }
 
     async function loadTrends() {
         let txData = [];
@@ -1307,7 +1301,7 @@
 
         myTrendChart = new Chart(ctx, {
             type: 'bar',
-            data: { labels: labels, datasets: [{ label: 'Harcama Dağılımı (TRY)', data: data, backgroundColor: barColors.slice(0, data.length), borderRadius: 4, maxBarThickness: 60 }] },
+            data: { labels: labels, datasets: [{ label: 'Dağılım (TRY)', data: data, backgroundColor: barColors.slice(0, data.length), borderRadius: 4, maxBarThickness: 60 }] },
             options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { display: false } }, y: { grid: { color: gridColor }, beginAtZero: true } }, plugins: { legend: { display: false } } }
         });
     }
